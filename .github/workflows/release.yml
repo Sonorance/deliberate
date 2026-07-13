@@ -1,0 +1,139 @@
+name: Release
+
+on:
+  pull_request:
+    branches: [release/default, release/insiders]
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: npm release channel
+        required: true
+        type: choice
+        default: stable
+        options:
+          - stable
+          - insiders
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.channel || github.base_ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      prerelease: ${{ steps.release.outputs.prerelease }}
+      sha: ${{ steps.release.outputs.sha }}
+      tag: ${{ steps.release.outputs.tag }}
+      tarball: ${{ steps.package.outputs.tarball }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || github.sha }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Resolve release version and npm channel
+        id: release
+        env:
+          RELEASE_CHANNEL: ${{ github.event_name == 'workflow_dispatch' && inputs.channel || (github.base_ref == 'release/insiders' && 'insiders' || 'stable') }}
+        run: |
+          set -euo pipefail
+          base=$(node -p "require('./package.json').version")
+          if [[ "$base" == *-* ]]; then
+            echo "::error::package.json must contain a stable base version, not $base"
+            exit 1
+          fi
+          if [ "$RELEASE_CHANNEL" = "insiders" ]; then
+            version="${base}-beta.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
+            tag="insiders"
+            prerelease="true"
+          else
+            version="$base"
+            tag="latest"
+            prerelease="false"
+          fi
+          npm version --no-git-tag-version --allow-same-version "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Build and verify immutable package
+        id: package
+        run: |
+          set -euo pipefail
+          tarball=$(npm pack --silent | tail -n 1)
+          test -f "$tarball"
+          node scripts/verify-tarball.mjs "$tarball"
+          echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: npm-package
+          path: ${{ steps.package.outputs.tarball }}
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - uses: actions/download-artifact@v8
+        with:
+          name: npm-package
+      - name: Publish or resume exact npm artifact
+        env:
+          PACKAGE_NAME: deliberate-cli
+          PACKAGE_VERSION: ${{ needs.build.outputs.version }}
+          TARBALL: ${{ needs.build.outputs.tarball }}
+        run: |
+          set -euo pipefail
+          local_sha=$(shasum -a 1 "$TARBALL" | cut -d' ' -f1)
+          remote_sha=$(npm view "$PACKAGE_NAME@$PACKAGE_VERSION" dist.shasum 2>/dev/null || true)
+          if [ -n "$remote_sha" ]; then
+            if [ "$remote_sha" != "$local_sha" ]; then
+              echo "::error::$PACKAGE_NAME@$PACKAGE_VERSION already exists with a different artifact."
+              exit 1
+            fi
+            echo "$PACKAGE_NAME@$PACKAGE_VERSION is already published with the verified artifact; resuming."
+          else
+            npm publish "./$TARBALL" --ignore-scripts --access public --tag "${{ needs.build.outputs.tag }}"
+          fi
+
+  github-release:
+    needs: [build, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Create or resume GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag="v${{ needs.build.outputs.version }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "$tag already has a GitHub release; resuming."
+            exit 0
+          fi
+          args=()
+          if [ "${{ needs.build.outputs.prerelease }}" = "true" ]; then args+=(--prerelease); else args+=(--latest); fi
+          gh release create "$tag" --target "${{ needs.build.outputs.sha }}" --title "Deliberate ${{ needs.build.outputs.version }}" --generate-notes "${args[@]}"

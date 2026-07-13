@@ -1,0 +1,15 @@
+# Logs / runtime
+*.log
+.DS_Store
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Desktop app build output (electron-builder)
+dist-app/
+
+# Local env / secrets — never commit
+.env
+.env.*
+*.local

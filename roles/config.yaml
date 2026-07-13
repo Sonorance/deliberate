@@ -1,0 +1,130 @@
+# roles/config.yaml — binds each pipeline STAGE to its instructions, output template,
+# and reusable skills. Keyed by stage; the files live under this `roles/` folder,
+# organized by role: analyst/ (frame, shape, launch), evaluator/ (score), prototyper/ (prototype).
+#
+# Each stage maps to:
+#   instructions      repo-relative path to the stage's instructions
+#   templates.default repo-relative path to the output template (the section's shape).
+#                     `init` is the exception: it has THREE outputs, so it uses
+#                     templates.product + templates.competitors + templates.ecosystem instead of `default`.
+#   skills            repo-relative paths to the reusable skills it applies (roles/skills/)
+#   model             ONLY for `score` (the isolated cross-vendor Evaluator) — the model
+#                     the host spawns it on. Host-run stages omit it (the host uses its
+#                     own session model).
+#   reasoning_effort  optional --effort (score only).
+#
+# The engine (src/engine/roles.mjs) re-reads this file every run, so an edit takes effect
+# on the NEXT run. With DELIBERATE_MODEL=stub the model is ignored. Unset paths fall back
+# to `roles/<stage>/…` (never hit — real stages are explicit); the headless `case new`
+# path uses the default model (claude-opus-4.8) for the host-run stages.
+
+# Deliberate's funnel is driven by the `/deliberate` **skill**, not by engine "agents".
+# The parts the HOST authors in-session (`frame`, `shape`, `launch`, and the on-request
+# `prototype`) are just **skill playbooks + templates** — their `instructions`, output
+# `templates`, and `skills` are injected into the prompt the host fulfills. They carry
+# **no `model`**: the host uses its own session model, so a per-stage model/effort would
+# be dead weight.
+#
+# The ONE real model-agent is the **Evaluator** (`score`): the host spawns it as an
+# isolated, CROSS-VENDOR sub-agent, so its `model` (+ tuning) is the only one configured.
+#
+# Each entry maps to: instructions (path), templates.default (path; init uses
+# templates.product + templates.competitors + templates.ecosystem instead), skills (paths into
+# roles/skills/), and — for score only — model + reasoning_effort. The engine re-reads
+# this file every run. The headless `case new` path (CI/tests) falls back to the default
+# model (claude-opus-4.8) for the host-run stages. With DELIBERATE_MODEL=stub the model
+# is ignored entirely.
+
+# Analyst — pass 1: frame the problem (personas + jobs-to-be-done) and the competitive landscape.
+frame:
+  instructions: roles/analyst/frame/instructions.md
+  templates:
+    default:    roles/analyst/frame/output-template.md
+  skills: [roles/skills/jtbd.md]
+
+# Evaluator — the decorrelated go/no-go, spawned as an isolated sub-agent on a DIFFERENT
+# vendor than the Analyst so the score isn't anchored by the author. Scores the PROBLEM only.
+# This is the only stage with an explicit model.
+score:
+  model:        gpt-5.4
+  reasoning_effort: high
+  instructions: roles/evaluator/score/instructions.md
+  templates:
+    default:    roles/evaluator/score/output-template.md
+  skills: [roles/skills/prioritization.md, roles/skills/win-conditions.md, roles/skills/critique.md]
+
+# Analyst — pass 2: shape the solution concept + step-level, surface-native user journeys.
+shape:
+  instructions: roles/analyst/shape/instructions.md
+  templates:
+    default:    roles/analyst/shape/output-template.md
+  skills: [roles/skills/ux-principles.md, roles/skills/tech-constraints.md, roles/skills/jtbd.md, roles/skills/win-conditions.md]
+
+# Analyst — pass 3: launch — how the concept reaches its first users and compounds
+# (the pitch, first users, the phased launch plan, how it spreads, and telemetry-grounded metrics).
+launch:
+  instructions: roles/analyst/launch/instructions.md
+  templates:
+    default:    roles/analyst/launch/output-template.md
+  skills: [roles/skills/jtbd.md, roles/skills/win-conditions.md, roles/skills/positioning.md, roles/skills/metrics.md]
+
+# Prototyper — the interactive mock of the primary journey, a recomputable companion (NOT a
+# funnel stage — like the score/one-pager), built on request and authored in-session.
+prototype:
+  instructions: roles/prototyper/prototype/instructions.md
+  templates:
+    default:    roles/prototyper/prototype/output-template.md
+  skills: [roles/skills/ux-principles.md, roles/skills/tech-constraints.md, roles/skills/jtbd.md, roles/skills/win-conditions.md]
+
+# Analyst — the One-pager: a customer-facing 1-page companion to the decision record (NOT a
+# funnel stage — no score, no funnel state). Host-run in-session (no model), it distils the
+# finished frame/shape/launch into a concise, customer-voiced narrative + a short FAQ (PR/FAQ lineage).
+one-pager:
+  instructions: roles/analyst/one-pager/instructions.md
+  templates:
+    default:    roles/analyst/one-pager/output-template.md
+  skills: [roles/skills/positioning.md, roles/skills/jtbd.md]
+
+# Briefer — the periodic landscape brief (project-scoped, NOT a case stage). Host-run in-session
+# (no model), it scans the competitive + market changes since the last brief (capped at 3 months)
+# and distills them to a concise, sourced, actionable executive brief.
+brief:
+  instructions: roles/briefer/brief/instructions.md
+  templates:
+    default:    roles/briefer/brief/output-template.md
+  skills: [roles/skills/landscape-scan.md]
+
+# Reporter — the periodic product readout (project-scoped, NOT a case stage). Host-run
+# in-session over the project's configured metrics, customer evidence, and product context.
+readout:
+  instructions: roles/reporter/readout/instructions.md
+  templates:
+    default:    roles/reporter/readout/output-template.md
+  skills: [roles/skills/product-readout.md]
+
+# Scout — the single-competitor head-to-head (project-scoped, NOT a case stage). Host-run in-session
+# (no model, no gate), it researches ONE named rival and writes a grounded, point-in-time matchup —
+# refreshed in place per rival. Where the Briefer scans breadth-of-change across the whole field, the
+# Scout goes deep on one rival: dossier → dimension-by-dimension → SWOT → JTBD → battlecard → positioning
+# → opportunities. Bound to the head-to-head method plus the supporting house skills.
+matchup:
+  instructions: roles/scout/matchup/instructions.md
+  templates:
+    default:    roles/scout/matchup/output-template.md
+  skills: [roles/skills/head-to-head.md, roles/skills/jtbd.md, roles/skills/positioning.md, roles/skills/prioritization.md, roles/skills/tech-constraints.md, roles/skills/landscape-scan.md]
+
+# Initiator — sets up the project context (product.md + competitors.md + ecosystem.md) that grounds every
+# Case, brief, and analysis. Host-run in-session (no model), like the other host stages. Its three output
+# templates are the context scaffolds co-located under roles/initiator/init/; `init prompt` injects
+# the instructions, and `deliberate init` writes the scaffolds the host then fills in place.
+init:
+  instructions: roles/initiator/init/instructions.md
+  templates:
+    product:     roles/initiator/init/output-template-product.md
+    competitors: roles/initiator/init/output-template-competitors.md
+    ecosystem:   roles/initiator/init/output-template-ecosystem.md
+  skills: [roles/skills/jtbd.md, roles/skills/landscape-scan.md, roles/skills/positioning.md, roles/skills/metrics.md]
+
+# There are no `build`, `title`, `describe`, or `contextualize` engine agents. Titling and
+# project-context derivation are done by the HOST in-session (via `retitle` and `context set`
+# during `/deliberate init`). Only `score` is ever a separate (cross-vendor) model.

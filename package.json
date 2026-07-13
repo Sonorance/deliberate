@@ -1,0 +1,51 @@
+{
+  "name": "deliberate-cli",
+  "version": "0.2.0",
+  "type": "module",
+  "description": "Deliberate — a files-first product toolkit for coding agents that creates grounded, reviewable Markdown cases, briefs, readouts, matchups, and prototypes.",
+  "author": {
+    "name": "Deliberate"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sonorance/deliberate.git"
+  },
+  "homepage": "https://deliberate.md",
+  "bugs": {
+    "url": "https://github.com/Sonorance/deliberate/issues"
+  },
+  "bin": {
+    "deliberate-cli": "src/cli/deliberate.mjs",
+    "deliberate": "src/cli/deliberate.mjs",
+    "dlb": "src/cli/deliberate.mjs"
+  },
+  "scripts": {
+    "deliberate": "node src/cli/deliberate.mjs",
+    "app": "node src/cli/deliberate.mjs serve --open",
+    "test": "node --test --test-force-exit --import ./test-setup.mjs"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "sonorance": "^0.1.0",
+    "vega": "^6.2.0",
+    "vega-lite": "^6.4.3"
+  },
+  "files": [
+    "src/engine",
+    "src/cli",
+    "roles",
+    "skill",
+    "AGENTS.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "js-yaml": "^4.1.0"
+  }
+}
