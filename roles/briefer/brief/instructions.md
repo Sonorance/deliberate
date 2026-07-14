@@ -16,13 +16,7 @@ decide anything; you surface signal.
 - The **previous brief** — when one exists, its full body is injected as read-only prior context. It is
   the proof this is not a first brief and the baseline you must not re-report: cover only
   what changed *after* its window. A first-ever brief has none.
-- The **project context** (`deliberate/context/product.md`) — the product, its **named competitors**, its
-  **Ecosystem** (the named players — dependencies, complements, channels, movers — each `current`/`potential`),
-  and its **Market** (the category, the standards & protocols it participates in or depends on, and
-  technologies/trends to watch) — plus **`deliberate/context/competitors.md`** (each competitor's official
-  monitoring sources) and **`deliberate/context/ecosystem.md`** (each ecosystem player's). Competitors +
-  competitors.md ground the **Competition** lens; Ecosystem + ecosystem.md + Market ground the **Market**
-  lens.
+- The three **project context** files: `deliberate/context/product.md` for the product and Market (category, standards/protocols, technologies/trends); **`deliberate/context/competitors.md`** as the single source of truth for the named competitor roster, details, and official monitoring sources; and **`deliberate/context/ecosystem.md`** as the single source of truth for named dependencies, complements, channels, and movers (each `current`/`potential`), their details, and official monitoring sources. `competitors.md` grounds the **Competition** lens; `ecosystem.md` + the Market section in `product.md` ground the **Market** lens.
 - The **attached sources** and the read-only repo — additional grounding for the project's space.
 - **`landscape-scan`** (the method you must apply).
 
@@ -30,7 +24,7 @@ decide anything; you surface signal.
 Research and write, applying `landscape-scan` throughout:
 
 ### Competition
-For **each named competitor** (from `product.md` / `competitors.md`), scan their **first-party** signals
+For **each named competitor** in `competitors.md`, scan their **first-party** signals
 **within the window**: announcements, product-blog posts, release notes / changelog, roadmap changes,
 public **codebase activity** (notable commits, merged PRs, new modules, deprecations), pricing/packaging
 moves, and docs for newly-shipped capabilities. Capture **up to three** genuinely meaningful highlights
@@ -38,8 +32,7 @@ per competitor, **each with a working source link**. If a competitor had no mean
 window, write exactly **"No meaningful updates."** for them — never invent motion.
 
 ### Market
-Scan the wider **space and players around the project** (grounded in the project context's **Ecosystem**
-roster + `ecosystem.md` sources — dependencies, complements, channels, movers — and its **Market** section:
+Scan the wider **space and players around the project** (grounded in the roster, details, and sources in `ecosystem.md` — dependencies, complements, channels, movers — and the **Market** section in `product.md`:
 category, standards/protocols, and technologies to watch) for changes within the window: ecosystem-player
 moves (a dependency's breaking change / advisory, a complement's or channel's shift, a mover's policy or
 governance change), upcoming/new **protocol or standard releases**, **new entrants or adjacent players**

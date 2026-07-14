@@ -19,16 +19,14 @@ A brief reports **only what changed inside the window** you are given (`period_s
 - "No change" is a valid, valuable answer. An honest empty section beats invented motion.
 
 ## 1. Two lenses
-**Competition** — the *named* competitors from the project context (`product.md` → Competitors, with
-their monitoring sources in `competitors.md`). For each, scan the **first-party** signals in
+**Competition** — the *named* competitors, details, and monitoring sources from `competitors.md`, their single source of truth. For each, scan the **first-party** signals in
 `competitors.md` within the window:
 - announcements / product blog, release notes / changelog, **roadmap** changes,
 - **codebase activity** (public repos: notable commits, merged PRs, new modules, deprecations),
 - pricing / packaging changes, docs for newly-shipped capabilities.
 
 **Market & ecosystem** — the *space and players around the project*, one step wider than the named
-competitors, grounded in `product.md` → **Ecosystem** (the named players — dependencies, complements,
-channels, movers — each `current`/`potential`, with their monitoring sources in `ecosystem.md`) and
+competitors, grounded in `ecosystem.md` (the named players — dependencies, complements, channels, movers — each `current`/`potential`, with their details and monitoring sources) and
 `product.md` → **Market** (the category, the standards & protocols the product participates in or depends on,
 and the technologies/trends to watch). For each ecosystem player, scan its **first-party** signals in
 `ecosystem.md` within the window (a dependency's releases / breaking changes / security advisories, a

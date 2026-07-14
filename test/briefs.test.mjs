@@ -90,9 +90,9 @@ test('briefPrompt: a FIRST-ever brief injects NO previous-brief block', async ()
 
 test('briefPrompt: injects the reporting window + competitors + ecosystem + landscape-scan skill', async () => {
   const p3 = createProjectWithId(store, 'bp3', 'PromptProj').id;
-  store.writeContext(p3, '# PromptProj\n\n## Competitors\n\n- Acme — a rival.\n');
-  store.writeCompetitors(p3, '# Competitors\n\n## Acme\n\n- [Blog](https://acme.example/blog)\n');
-  store.writeEcosystem(p3, '# Ecosystem\n\n## Nodely — Dependency, current\n\n- [Releases](https://nodely.example/releases)\n');
+  store.writeContext(p3, '# PromptProj\n\n## Competitors\n\nSee [competitors.md](./competitors.md).\n\n## Ecosystem\n\nSee [ecosystem.md](./ecosystem.md).\n');
+  store.writeCompetitors(p3, '# Competitors\n\n## Acme\n\n- **Overlap:** Direct rival.\n\n### Monitoring sources\n\n- [Blog](https://acme.example/blog)\n');
+  store.writeEcosystem(p3, '# Ecosystem\n\n## Nodely — Dependency, current\n\n- **What it is to us:** Runtime.\n\n### Monitoring sources\n\n- [Releases](https://nodely.example/releases)\n');
   const { system, user } = await briefPrompt(store, store.getProject(p3));
   assert.match(user, /Reporting window \(STRICT\)/, 'the task states the strict window');
   assert.match(user, /period_start:/, 'the window has a start');
@@ -100,7 +100,7 @@ test('briefPrompt: injects the reporting window + competitors + ecosystem + land
   assert.match(user, /----- OUTPUT TEMPLATE -----/, 'the template is appended');
   assert.match(system, /Landscape Scan/i, 'the landscape-scan skill is injected');
   assert.match(system, /acme\.example\/blog/, 'the competitor monitoring sources are injected');
-  assert.match(system, /Ecosystem monitoring sources \(ecosystem\.md\)/, 'the ecosystem block header is injected');
+  assert.match(system, /Ecosystem context \(ecosystem\.md, read-only\)/, 'the ecosystem block header is injected');
   assert.match(system, /nodely\.example\/releases/, 'the ecosystem monitoring sources are injected');
   assert.match(system, /Briefer/, 'the Briefer instructions are injected');
   assert.match(system, /name the actor\/product, the concrete change, its dated\/source-backed evidence/i, 'highlights must identify concrete, dated signals');

@@ -31,8 +31,8 @@ export const SKILL_COMMANDS = [
   ['/deliberate matchup list', 'List the project’s matchups (one per rival; newest first).'],
   ['/deliberate readout [period]', 'Produce a product readout for one completed period — the previous calendar week by default, or a natural-language override such as “for June” or “for Q2”.'],
   ['/deliberate readout list', 'List the project’s product readouts (newest first).'],
-  ['/deliberate source add <location> ["<description>"] [--section <section>] | remove <location>', 'Add a categorized context source (with an optional description) or remove one; the host reads it in-harness.'],
-  ['/deliberate source list', 'List the project’s context sources.'],
+  ['/deliberate source add <location> ["<description>"] [--section <section>] | remove <location>', 'Add a categorized external context source from outside the current project folder (with an optional description), or remove one; the host reads it in-harness.'],
+  ['/deliberate source list', 'List the project’s external context sources.'],
 ];
 
 // Each entry: [invocation, one-line description]. Commands are noun-first, aggregated under
@@ -67,8 +67,8 @@ export const CLI_COMMANDS = [
   ['readout prompt [--period-start <YYYY-MM-DD> --period-end <YYYY-MM-DD>] [--timezone <IANA>]', 'Print the Reporter prompt for one completed reporting period; defaults to the previous calendar week in the supplied timezone (UTC when omitted).'],
   ['readout chart --spec <json> --output <svg>', 'Render one validated key-metric time series as a deterministic, accessible SVG trend chart.'],
   ['readout save [--file <path> | --bundle <dir>] [--period-start <YYYY-MM-DD> --period-end <YYYY-MM-DD>] [--timezone <IANA>]', 'Persist a product readout only when its Period line matches the selected completed period; for a bundle, also persist referenced charts/ SVG sidecars.'],
-  ['serve [--open] [--port <n>]', 'Start the local app — the web UI over your vault (--open launches the browser).'],
-  ['source [list | add <location> ["<description>"] [--section <section>] | remove <location>]', 'List / manage categorized context sources (recorded in .sonorance/sources.md; the host reads each in-harness).'],
+  ['serve [--open] [--port <n>] [--file <path>]', 'Start the local app — the web UI over your vault (--open launches the browser, optionally at a project-relative Markdown file).'],
+  ['source [list | add <location> ["<description>"] [--section <section>] | remove <location>]', 'List / manage categorized external context sources from outside the current project folder (recorded in .sonorance/sources.md; the host reads each in-harness).'],
 ];
 
 // The distinct top-level verbs the engine CLI must dispatch (first token of each command).

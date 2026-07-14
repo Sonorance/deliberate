@@ -68,7 +68,7 @@ test('the Initiator deduces real competitors (never empty); SKILL.md orchestrate
   assert.match(instr, /research, not fabrication/i, 'deducing real competitors is research, not fabrication');
   // Orchestration (SKILL.md): the guardrails + the confirm step stay in the playbook.
   assert.match(skill, /research, not fabrication/i, 'SKILL.md keeps the research-not-fabrication guardrail');
-  assert.match(skill, /[Nn]ever leave [Cc]ompetitors empty/, 'SKILL.md keeps never-leave-empty');
+  assert.match(skill, /[Nn]ever leave the roster empty/, 'SKILL.md keeps never-leave-empty');
   assert.match(skill, /deduced competitors/i, 'the confirm step shows the deduced competitors');
   assert.match(skill, /readout cadence\/alignment\/timezone/i, 'the confirm step shows the report-level period contract');
   assert.match(instr, /readout cadence\/alignment\/timezone/i, 'the Initiator asks the user to confirm the period contract');
@@ -86,10 +86,12 @@ test('`deliberate init` sets up the CURRENT folder: context under deliberate/con
   const out = runIn(repo, {}, 'init');
   assert.match(out, /initialized/i);
   assert.ok(existsSync(join(repo, 'deliberate', 'context', 'product.md')), 'the context lives at deliberate/context/product.md');
-  // Competitors must be auto-deduced, never left empty (the scaffold instructs the host).
   const prod = readFileSync(join(repo, 'deliberate', 'context', 'product.md'), 'utf8');
-  assert.match(prod, /Identify several .*competitors/i, 'the scaffold tells the host to deduce several competitors');
-  assert.match(prod, /[Nn]ever leave this\s+empty/, 'the scaffold forbids leaving Competitors empty');
+  const competitors = readFileSync(join(repo, 'deliberate', 'context', 'competitors.md'), 'utf8');
+  assert.match(prod, /## Competitors\s+See \[competitors\.md\]/, 'product.md references the canonical competitor file');
+  assert.match(prod, /## Ecosystem\s+See \[ecosystem\.md\]/, 'product.md references the canonical ecosystem file');
+  assert.match(competitors, /single source of truth/i, 'the competitor scaffold owns the roster and details');
+  assert.match(competitors, /never a token 2[–-]3/i, 'the competitor scaffold forbids a token roster');
   assert.ok(existsSync(join(repo, '.sonorance', 'config.json')), 'platform config under the hidden .sonorance/');
   // The repo is now the current project and a case lands under deliberate/cases/<YYYY-MM-DD-slug>/.
   runIn(repo, {}, 'case', 'Bulk archive stale mail');
@@ -195,7 +197,7 @@ test('SKILL.md `readout` grounds all analysis in one completed, overridable repo
 test('SKILL.md requires workflow-specific, default-positive follow-up CTAs', () => {
   const body = readFileSync(join(repoRoot, 'skill/SKILL.md'), 'utf8');
   const routing = body.slice(body.indexOf('Every substantive workflow'), body.indexOf('## `init`'));
-  for (const next of ['`init` → run the first brief', '`brief` → run the recommended cases', 'product/market `case` → build the appropriate prototype', 'strategy/platform `case` → review the completed decision record in Sonorance', '`prototype` → open it for review', '`readout` → run the recommended cases', '`matchup` → run a fresh brief', '`source add|remove` → refresh affected project context', '`address` → review the resolved changes in Diff mode'])
+  for (const next of ['`init` → run the first brief', '`brief` → run the recommended cases', 'product/market `case` → build the appropriate prototype', 'strategy/platform `case` → review the completed decision record in Sonorance', '`prototype` → open it for review', '`readout` → run the recommended cases', '`matchup` → run the recommended cases', '`source add|remove` → refresh affected project context', '`address` → review the resolved changes in Diff mode'])
     assert.match(routing, new RegExp(next.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `documents the ${next} handoff`);
   assert.match(routing, /default yes/g, 'substantive CTAs are default-positive');
 
@@ -209,6 +211,21 @@ test('SKILL.md requires workflow-specific, default-positive follow-up CTAs', () 
   assert.match(brief, /why analy(?:sis|zing it) is valuable now/i, 'recommended cases explain the value of analysis');
   assert.match(brief, /decision.*unlock/i, 'recommended cases name the decision they unlock');
   assert.match(brief, /Run recommended cases.*default/is, 'running recommended cases is the default Brief CTA');
+
+  const matchup = body.slice(body.indexOf('## `matchup`'), body.indexOf('## `case list`'));
+  assert.match(matchup, /triggering insight/i, 'matchup case recommendations preserve the actionable insight');
+  assert.match(matchup, /why analysis is valuable now/i, 'matchup case recommendations explain why analysis matters');
+  assert.match(matchup, /decision.*unlock/i, 'matchup case recommendations name the decision they unlock');
+  assert.match(matchup, /Run the recommended cases from this matchup\?/i, 'matchups funnel case-worthy insights into cases');
+  assert.doesNotMatch(matchup, /run a (?:fresh )?(?:landscape )?brief/i, 'matchups no longer default to another brief');
+});
+
+test('SKILL.md opens produced artifacts directly in Sonorance', () => {
+  const body = readFileSync(join(repoRoot, 'skill/SKILL.md'), 'utf8');
+  for (const path of ['deliberate/cases/', 'deliberate/briefs/', 'deliberate/readouts/', 'deliberate/matchups/']) {
+    assert.match(body, new RegExp(`serve --open --file "[^"]*${path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`), `review guidance targets ${path}`);
+  }
+  assert.doesNotMatch(body, /they navigate to the (?:case|record) via the Explorer/i, 'review no longer requires manual Explorer navigation');
 });
 
 test('SKILL.md preserves the prototype quality contract without delegating it to generic brevity', () => {
@@ -223,16 +240,18 @@ test('SKILL.md preserves the prototype quality contract without delegating it to
   assert.match(prototype, /performs no real network calls/);
 });
 
-test('the Initiator role grounds the brief: Ecosystem + Market + per-competitor, change-oriented sources', () => {
+test('the Initiator keeps competitor and ecosystem rosters single-sourced while grounding the brief', () => {
   const instr = readFileSync(join(repoRoot, 'roles/initiator/init/instructions.md'), 'utf8').replace(/\s+/g, ' ');
-  assert.match(instr, /\bEcosystem\b/, 'the method writes an Ecosystem players section');
+  assert.match(instr, /Never list, summarize, or detail a competitor or ecosystem player in `product\.md`/i);
+  assert.match(instr, /competitors\.md.*canonical competitor roster, details, and monitoring sources/i);
+  assert.match(instr, /ecosystem\.md.*canonical ecosystem roster, details, and monitoring sources/i);
   assert.match(instr, /\bMarket\b/, 'the method writes a Market section');
   assert.match(instr, /standards? & protocols/i, 'names standards & protocols to watch');
   assert.match(instr, /dependency \/ complement \/ channel \/ mover|Dependency.*Complement.*Channel.*Mover/i, 'classifies ecosystem players by position');
   assert.match(instr, /current.*potential|potential.*current/i, 'ecosystem players carry a current/potential status');
-  assert.match(instr, /per competitor/i, 'competitors.md sources are per competitor, not a fixed total');
-  assert.match(instr, /per player|each ecosystem player/i, 'ecosystem.md sources are per player');
-  assert.match(instr, /detecting what they ship|change-detection/i, 'the sources are change-detection oriented');
+  assert.match(instr, /For each, record what it is, how it overlaps, why it matters/i, 'competitor details live with the roster');
+  assert.match(instr, /For each strategically material player, record its position, status, relationship, decision relevance/i, 'ecosystem details live with the roster');
+  assert.match(instr, /changelog|breaking-change notes/i, 'the sources are change-detection oriented');
   assert.match(instr, /\/deliberate brief|landscape brief/i, 'states these ground the brief');
 });
 
@@ -260,22 +279,25 @@ test('init records one durable readout period contract, never snapshot baselines
   assert.match(metrics, /previous readout artifact is never the metric baseline/i);
 });
 
-test('SKILL.md `init` discovers the project\'s OWN sources section by section, with a complete default-accept confirmation', () => {
+test('SKILL.md `init` reads project files directly and discovers only external sources section by section', () => {
   const skill = readFileSync(join(repoRoot, 'skill/SKILL.md'), 'utf8');
   const step2 = skill.slice(skill.indexOf('## `init`'), skill.indexOf('## `case <idea>`'));
-  assert.match(step2, /source add/, 'still collects the user\u2019s manual sources via `source add`');
-  assert.match(step2, /Discover by section, not as one undifferentiated pile/i, 'discovery begins with the grounding sections, not a generic source pile');
+  assert.match(step2, /read every relevant file inside the current project directly as automatic context/i);
+  assert.match(step2, /never propose, confirm, or persist an in-project file or folder as a source/i);
+  assert.match(step2, /source add/, 'still collects the user\u2019s manual external sources via `source add`');
+  assert.match(step2, /Discover external sources by section, not as one undifferentiated pile/i, 'discovery begins with the grounding sections, not a generic source pile');
   for (const section of ['product-strategy', 'code-delivery', 'metrics-data', 'customer-voice', 'go-to-market'])
     assert.match(step2, new RegExp(section), `actively covers ${section}`);
-  assert.match(step2, /at least three distinct, high-signal sources per section when they genuinely exist/i, 'seeks meaningful section depth without a hard quota');
-  assert.match(step2, /accept fewer when they are more authoritative/i, 'allows fewer stronger sources');
+  assert.match(step2, /at least three distinct, high-signal external sources per section when they genuinely exist/i, 'seeks meaningful section depth without a hard quota');
+  assert.match(step2, /accept fewer—or none—when the project files and a smaller authoritative set are sufficient/i, 'allows fewer stronger sources');
   assert.match(step2, /never pad a quota/i, 'forbids noisy quota padding');
   assert.match(step2, /first-party/i, 'applies the first-party source discipline');
   assert.match(step2, /Confirm before adding/i, 'has a confirmation gate before adding discovered sources');
-  assert.match(step2, /every auto-discovered candidate/i, 'shows the complete candidate list');
+  assert.match(step2, /every auto-discovered external candidate/i, 'shows the complete external candidate list');
+  assert.match(step2, /Never include an in-project file/i, 'keeps project files out of the candidate list');
   assert.match(step2, /- <location> - <source description>/, 'uses the exact readable source bullet shape');
   assert.match(step2, /Do not collapse the list into counts or prose/i, 'forbids incomplete summary-only confirmation');
-  assert.match(step2, /alongside the manual sources/i, 'option: add alongside the manual sources');
+  assert.match(step2, /alongside the manual external sources/i, 'option: add alongside the manual external sources');
   assert.match(step2, /keep only the ones they gave/i, 'option: keep only the manual sources');
   assert.match(step2, /change the list/i, 'option: change the proposed list');
   assert.match(step2, /never drop or overwrite/i, 'the manual sources are never dropped');
@@ -287,15 +309,18 @@ test('the Initiator method defines section-led discovery and strategic ecosystem
   const instr = readFileSync(join(repoRoot, 'roles/initiator/init/instructions.md'), 'utf8');
   const sec = instr.slice(instr.indexOf('### `.sonorance/sources.md`'));
   assert.ok(sec.length > 0, 'the method has a dedicated .sonorance/sources.md section');
+  assert.match(sec, /project folder itself is automatic context/i);
+  assert.match(sec, /never propose, confirm, or record a file or folder inside it as a source/i);
+  assert.match(sec, /contains only external URLs and local paths outside the current project folder/i);
   assert.match(sec, /discover section by section/i, 'sources are sought for each decision section');
   assert.match(sec, /Do not detect one generic pile/i, 'generic discovery-then-bucketing is forbidden');
-  assert.match(sec, /prefer at least three distinct high-signal sources when they genuinely exist/i, 'prefers useful depth');
-  assert.match(sec, /keep fewer when they are more authoritative/i, 'authority wins over quotas');
+  assert.match(sec, /prefer at least three distinct high-signal external sources when they genuinely exist/i, 'prefers useful depth');
+  assert.match(sec, /keep fewer—or none—when the project files and a smaller authoritative set are sufficient/i, 'authority wins over quotas');
   assert.match(sec, /- <location> - <source description>/, 'confirmation lists every source in the exact required shape');
   assert.match(sec, /Public Issues page.*customer-voice/i, 'verified public GitHub Issues become Customer Voice');
   assert.match(sec, /never drop or overwrite/i, 'the manual sources are never dropped');
 
-  const ecosystem = instr.slice(instr.indexOf('- **Ecosystem:** catalogue'), instr.indexOf('### `competitors.md`'));
+  const ecosystem = instr.slice(instr.indexOf('- **Ecosystem:**'), instr.indexOf('### `competitors.md`'));
   assert.match(ecosystem, /strategically material named players/i, 'the ecosystem is strategic rather than exhaustive');
   assert.match(ecosystem, /news.*could plausibly trigger an actionable product or business decision/is, 'inclusion is governed by decision relevance');
   assert.match(ecosystem, /do not copy the manifest into the roster/i, 'dependency manifests are evidence, not a roster');

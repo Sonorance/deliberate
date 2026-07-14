@@ -72,11 +72,7 @@ export async function briefPrompt(store, project, { at = Date.now() } = {}) {
   const template = await read(cfg.templates.default);
   const skillsBlock = (await loadSkills(cfg.skills)) || '(none)';
   const pctx = projectContext(store, project);
-  const competitors = (store.readCompetitors(project.id) || '').trim();
-  const compBlock = competitors ? `\n\n## Competitor monitoring sources (competitors.md)\n${competitors}` : '';
-  const ecosystem = (store.readEcosystem(project.id) || '').trim();
-  const ecoBlock = ecosystem ? `\n\n## Ecosystem monitoring sources (ecosystem.md)\n${ecosystem}` : '';
-  const system = `${agents}\n\n${pctx}${compBlock}${ecoBlock}\n\n## Skills\n${skillsBlock}\n\n## Stage instructions\n${instruction}`;
+  const system = `${agents}\n\n${pctx}\n\n## Skills\n${skillsBlock}\n\n## Stage instructions\n${instruction}`;
   const win = briefWindow(store, project.id, at);
   const windowBlock = `## Reporting window (STRICT)\n${windowNote(win)}\n- period_start: ${fmtDate(win.start)}\n- period_end: ${fmtDate(win.end)}\nReport ONLY changes dated within this window. Set the brief's "Period:" line to exactly "${briefPeriodLabel(win.start, win.end)}" — just the dates, with no added parenthetical or commentary (never label it a "first brief" or tie it to project creation).`;
   const prevBlock = previousBriefBlock(store, project.id);

@@ -18,6 +18,8 @@ import { configureTelemetry, emit, shutdownTelemetry } from 'sonorance/telemetry
 import { ensureInstallId } from 'sonorance/identity.mjs';
 import { submitFeedback } from 'sonorance/feedback.mjs';
 import { CommentClientError, fetchCommentBatch, fetchCommentProject, resolveComment } from 'sonorance/comment-client.mjs';
+import { buildLaunchUrl } from 'sonorance/launch-url';
+import { installSonoranceSkill } from 'sonorance/skill-installer';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, cpSync, rmSync, realpathSync } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
 import { homedir } from 'node:os';
@@ -25,6 +27,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { vaultIgnoreEntries } from 'sonorance/plugins/deliberate/gitignore.mjs';
 import { caseLens, caseLensLabel, requireCaseLens, supportsPrototype } from '../engine/lenses.mjs';
+import { externalSources, isExternalSource } from '../engine/sources.mjs';
 
 const c = { g: '\x1b[32m', y: '\x1b[33m', r: '\x1b[31m', d: '\x1b[90m', w: '\x1b[1m', x: '\x1b[0m' };
 const sc = (n) => n == null ? '—' : c[scoreClass(n)] + n.toFixed(1) + c.x;
@@ -300,12 +303,13 @@ export const cmds = {
     const abs = process.cwd();
     const p = openProjectVault(store, abs);
     setLast(p.id);
+    installSonoranceSkill({ projectDir: abs });
     // Keep machine state out of git (if the project uses a .gitignore): the platform `.sonorance/`
     // and any hidden dot-subfolder written under `deliberate/`. Never creates a .gitignore.
     const ignored = ensureGitignore(abs, vaultIgnoreEntries(abs));
     if (sub === 'prompt') {
       const { system, user } = await initPrompt(store, p);
-      return P(`MODEL: (produce in THIS session — you are the Initiator; read the repo + sources and edit the context files)\n===== SYSTEM =====\n${system}\n\n===== TASK =====\n${user}`);
+      return P(`MODEL: (produce in THIS session — you are the Initiator; read project files + external sources and edit the context files)\n===== SYSTEM =====\n${system}\n\n===== TASK =====\n${user}`);
     }
     P(`${c.g}✓${c.x} Deliberate initialized in ${abs}`);
     P(`  project: ${c.w}${p.name}${c.x} ${c.d}(${p.id})${c.x}`);
@@ -313,8 +317,8 @@ export const cmds = {
     P(`  ${c.d}the root README points agents to deliberate/context/${c.x}`);
     P(`  ${c.d}platform config (shared, cross-skill) is in the hidden ${c.x}${c.w}.sonorance/${c.x}${c.d} sibling${c.x}`);
     if (ignored.length) P(`  ${c.d}gitignored machine state: ${ignored.join(', ')}${c.x}`);
-    P(`  next → add sources: ${c.w}deliberate source add <location>${c.x}`);
-    P(`         get the method: ${c.w}deliberate init prompt${c.x} ${c.d}(then fill deliberate/context/product.md + competitors.md)${c.x}`);
+    P(`  next → add external sources: ${c.w}deliberate source add <location>${c.x}`);
+    P(`         get the method: ${c.w}deliberate init prompt${c.x} ${c.d}(then fill product.md + competitors.md + ecosystem.md)${c.x}`);
     P(`         first landscape: ${c.w}deliberate brief prompt${c.x}`);
   },
 
@@ -333,7 +337,7 @@ export const cmds = {
     const { startAppServer } = await import('../engine/app-boot.mjs');
     const port = opt('--port') ? +opt('--port') : undefined;
     const { port: boundPort } = await startAppServer(Number.isFinite(port) ? { port } : {});
-    const url = `http://localhost:${boundPort}`;
+    const url = buildLaunchUrl(`http://localhost:${boundPort}`, opt('--file'));
     // Record where this server is listening so `address`/`resolve` (and tools) reach THIS
     // server rather than guessing the default port. Cleared best-effort on exit.
     if (p) {
@@ -385,7 +389,7 @@ export const cmds = {
       : `  open any repo in Copilot CLI and run ${c.w}/deliberate init${c.x}`);
   },
 
-  // Context sources: URLs or local paths — recorded (with an optional inline description)
+  // External context sources: URLs or paths outside this project — recorded (with an optional inline description)
   // in the hand-editable `.sonorance/sources.md`. An optional description after the location
   // labels what the source is (e.g. `... add <location> "Roadmap"`). The host reads each
   // source itself in-harness; nothing is cloned or fetched by the CLI.
@@ -398,6 +402,9 @@ export const cmds = {
         if (!String(r[i]).startsWith('--')) pos.push(r[i]);
       }
       const location = pos[0]; if (!location) return P('usage: deliberate source add <location> ["<description>"] [--section <section>]');
+      if (!isExternalSource(p.dir, location)) {
+        throw new CliError('project sources must be outside the current project folder; in-project files are read automatically');
+      }
       const description = pos.slice(1).join(' ') || null;
       const section = opt('--section') || 'other';
       store.addSource(p.id, location, description, section);
@@ -405,7 +412,7 @@ export const cmds = {
     }
     if (sub === 'remove') { store.rmSource(p.id, r[0]); return P('removed'); }
     const grouped = new Map();
-    for (const source of store.listSources(p.id)) {
+    for (const source of externalSources(p.dir, store.listSources(p.id))) {
       const title = source.sectionTitle || 'Other';
       if (!grouped.has(title)) grouped.set(title, []);
       grouped.get(title).push(source);

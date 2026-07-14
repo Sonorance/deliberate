@@ -11,6 +11,7 @@ import { agentConfig } from './roles.mjs';
 import { read, loadBody, loadSkills } from './prompts.mjs';
 import { unwrapProse } from 'sonorance/plugins/deliberate/markdown.mjs';
 import { caseLens, caseLensLabel } from './lenses.mjs';
+import { externalSources } from './sources.mjs';
 
 export const scoreOf = (t) => { const m = t.match(/(?:total weighted score|score)[:*\s]+(10(?:\.0)?|[0-9](?:\.\d)?)/i); return m ? +m[1] : null; };
 
@@ -79,19 +80,23 @@ export function caseContext(store, kase) {
   return `# ${kase.title}\n\n## Decision lens\n${caseLensLabel(lens)} (\`${lens}\`)\n\n## case\n${kase.summary || kase.description || ''}\n\n${prior}`;
 }
 
-// Per-project context block: the host-written markdown context (product.md) +
-// attached sources + optional read-only repo, prepended to every stage's system
+// Per-project context block: all three host-written context files +
+// attached external sources + optional read-only repo, prepended to every stage's system
 // prompt so Copilot is grounded in THIS project, not just the repo-level skills.
 export function projectContext(store, project) {
   const ctx = (store.readContext(project.id) || '').trim();
-  const srcRows = store.listSources(project.id);
+  const competitors = (store.readCompetitors(project.id) || '').trim();
+  const ecosystem = (store.readEcosystem(project.id) || '').trim();
+  const srcRows = externalSources(project.dir, store.listSources(project.id));
   // Each source is passed WITH its (user-editable) description so the stage agents
   // know what each attached source is and why it's relevant — not just a bare URL.
   const srcs = srcRows.length
     ? '\n' + srcRows.map(s => `  - [${s.sectionTitle || 'Other'}] ${s.location}${s.description ? ` — ${s.description}` : ''}`).join('\n')
     : ' none';
   const body = ctx || `_Project context not written yet (run \`/deliberate init\`). Product: ${project.name}._`;
-  return `## Project context (read-only)\n\n${body}\n\n### Attached sources:${srcs}` +
+  const competitorBody = competitors || '_Competitor context not written yet._';
+  const ecosystemBody = ecosystem || '_Ecosystem context not written yet._';
+  return `## Product context (product.md, read-only)\n\n${body}\n\n## Competitor context (competitors.md, read-only)\n\n${competitorBody}\n\n## Ecosystem context (ecosystem.md, read-only)\n\n${ecosystemBody}\n\n### Attached external sources:${srcs}` +
     (project.repo ? `\n### Connected repo (read-only): ${project.repo}` : '');
 }
 

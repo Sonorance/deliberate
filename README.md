@@ -23,7 +23,7 @@ Use `/deliberate` in a compatible coding-agent harness. A typical first journey 
 /deliberate readout
 ```
 
-Run `deliberate serve --open` to review the generated Markdown, inspect diffs, and leave anchored comments in Sonorance. Project-required commands operate only in an initialized current working directory.
+Run `deliberate serve --open` to review the generated Markdown, inspect diffs, and leave anchored comments in Sonorance. Add `--file "<project-relative-path>"` to open a specific case, brief, readout, or matchup immediately. Project-required commands operate only in an initialized current working directory, and `deliberate init` installs the project-local `/sonorance` review skill used by the UI's address-comments guidance.
 
 ## Analyze any idea or signal
 
@@ -43,7 +43,7 @@ Every case follows `frame → shape → launch`, but each lens selects different
 ```text
 deliberate help [--skill]
 deliberate init
-deliberate serve [--open] [--port <n>]
+deliberate serve [--open] [--port <n>] [--file <path>]
 deliberate install [--here|--project <dir>]
 deliberate case "<idea>" [--lens <product|market|strategy|platform>]
 deliberate case list
@@ -62,6 +62,10 @@ deliberate comment list
 deliberate comment <commentId> resolve [--note "<text>"] [--revised]
 ```
 
+Project files are automatic grounding: `init` reads relevant files inside the current folder directly. `source add` is only for external URLs or local paths outside that folder; in-project files are rejected rather than recorded in `.sonorance/sources.md`.
+
+Project context is split to keep edits single-sourced: `product.md` contains core product context and links only from its Competitors and Ecosystem sections; `competitors.md` owns the complete competitor roster, details, and monitoring sources; `ecosystem.md` owns the complete ecosystem roster, details, and monitoring sources. Every workflow receives all three files.
+
 The underlying `--lens` option is host orchestration; users normally run `/deliberate case <idea>` without it. Run `deliberate help --skill` for generated, current command guidance.
 
 ## Files
@@ -70,7 +74,7 @@ The underlying `--lens` option is host orchestration; users normally run `/delib
 .sonorance/
   config.json
   plugins.json
-  sources.md
+  sources.md               # external grounding sources only
   local/
 deliberate/
   context/

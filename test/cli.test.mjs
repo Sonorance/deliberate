@@ -2,8 +2,8 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync, realpathSync, existsSync, readFileSync, readdirSync, mkdirSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { basename, join, dirname } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 
 // Isolated home + offline stub model, shared with the spawned CLI process.
@@ -48,7 +48,7 @@ test('CLI `help --skill` renders the exact live /deliberate grammar', () => {
   }
 });
 
-test('CLI `source add` records a categorized source without treating --section as description; `source remove` drops it', async () => {
+test('CLI `source add` records a categorized external source without treating --section as description; `source remove` drops it', async () => {
   const store = openVault();
   const p = await createProject(store, 'CliSrc');
   setCurrentProject(store, p.id);
@@ -63,6 +63,27 @@ test('CLI `source add` records a categorized source without treating --section a
   assert.equal(openVault().listSources(p.id).length, 0, 'source remove drops the source');
 });
 
+test('CLI rejects in-project sources and hides legacy in-project entries', async () => {
+  const store = openVault();
+  const p = await createProject(store, 'CliSrcBoundary');
+  setCurrentProject(store, p.id);
+  const inside = join(p.dir, 'docs', 'context.md');
+  mkdirSync(dirname(inside), { recursive: true });
+  writeFileSync(inside, 'local context');
+
+  for (const location of ['docs/context.md', inside, pathToFileURL(inside).href]) {
+    const result = resultIn(p.dir, ['source', 'add', location]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /outside the current project folder.*read automatically/i);
+  }
+
+  store.addSource(p.id, inside, 'Legacy local entry', 'other');
+  store.addSource(p.id, 'https://example.com/external', 'External entry', 'other');
+  const listed = runIn(p.dir, 'source', 'list');
+  assert.doesNotMatch(listed, /Legacy local entry/);
+  assert.match(listed, /External entry/);
+});
+
 test('`deliberate init` gitignores machine state (.sonorance/local/ + hidden deliberate/ subfolders) ONLY when a .gitignore exists', () => {
   const repo = mkdtempSync(join(tmpdir(), 'dlb-gi-'));
   const bare = mkdtempSync(join(tmpdir(), 'dlb-gi-none-'));
@@ -71,12 +92,19 @@ test('`deliberate init` gitignores machine state (.sonorance/local/ + hidden del
     writeFileSync(join(repo, '.gitignore'), 'node_modules\n');
     mkdirSync(join(repo, 'deliberate', '.cache'), { recursive: true });
     runIn(repo, 'init');
+    const reviewSkill = join(repo, '.github', 'skills', 'sonorance');
+    assert.ok(existsSync(join(reviewSkill, 'SKILL.md')), 'init installs the project-local /sonorance review skill');
+    const reviewEngine = JSON.parse(readFileSync(join(reviewSkill, 'scripts', 'engine.json'), 'utf8')).engine;
+    assert.equal(basename(reviewEngine), 'cli.mjs', 'the review skill launcher targets the Sonorance CLI');
+    assert.equal(basename(dirname(reviewEngine)), 'src', 'the review skill launcher targets the Sonorance source entrypoint');
+    assert.ok(existsSync(reviewEngine), 'the review skill launcher resolves an installed Sonorance engine');
     let gi = readFileSync(join(repo, '.gitignore'), 'utf8');
     assert.match(gi, /^\.sonorance\/local\/$/m, 'the machine-local .sonorance/local/ dir is ignored');
     assert.doesNotMatch(gi, /^\.sonorance\/$/m, 'the committed .sonorance/ config is NOT ignored');
     assert.match(gi, /^deliberate\/\.cache\/$/m, 'a hidden deliberate/ subfolder is ignored');
     assert.match(gi, /node_modules/, 'existing entries are preserved');
     runIn(repo, 'init');   // idempotent — no duplicate entries
+    assert.ok(existsSync(join(reviewSkill, 'SKILL.md')), 're-init keeps the project-local review skill installed');
     gi = readFileSync(join(repo, '.gitignore'), 'utf8');
     assert.equal(gi.split(/\r?\n/).filter(l => l.trim() === '.sonorance/local/').length, 1, 'the entry is added at most once');
     // (b) a repo WITHOUT a .gitignore → none is created.
@@ -518,8 +546,20 @@ test('CLI `readout prompt|chart|save|list` renders and persists a chart bundle',
 test('CLI `init prompt` injects the Initiator method + the context scaffolds for the host to fill', () => {
   const repo = mkdtempSync(join(tmpdir(), 'dlb-initp-'));
   runIn(repo, 'init');
+  const promptStore = openVault();
+  const project = promptStore.listProjects().find(candidate => existsSync(candidate.dir) && realpathSync(candidate.dir) === realpathSync(repo));
+  assert.ok(project, 'the initialized repo is registered as a project');
+  const localSource = join(repo, 'do-not-attach-local.md');
+  writeFileSync(localSource, 'automatic local grounding');
+  promptStore.addSource(project.id, localSource, 'Legacy local entry', 'other');
+  promptStore.addSource(project.id, 'https://example.com/init-source', 'External init source', 'other');
+  promptStore.close();
   const out = runIn(repo, 'init', 'prompt');
   assert.match(out, /you are the Initiator/, 'the host produces the context itself (Initiator)');
+  assert.match(out, /files inside this project directly/i, 'project files are read as automatic context');
+  assert.match(out, /Attached external sources:/);
+  assert.match(out, /https:\/\/example\.com\/init-source/, 'external sources remain attached');
+  assert.doesNotMatch(out, /do-not-attach-local\.md/, 'legacy in-project source entries are not injected');
   assert.match(out, /\bEcosystem\b/, 'the injected method covers the Ecosystem section');
   assert.match(out, /deliberate\/context\/product\.md/, 'the task points at the product.md file to edit');
   const readme = readFileSync(join(repo, 'README.md'), 'utf8');

@@ -170,13 +170,17 @@ test('cross-cutting: AGENTS.md golden rules + the no-echo template wrapper reach
   assert.match(frame.user, /no biography/i, 'frame template keeps personas to a short phrase');
 });
 
-test('project context the host wrote into deliberate/context/product.md reaches every stage prompt', async () => {
+test('all three project context files reach every stage prompt', async () => {
   const p = await createProject(store, 'HostCtx');
   // The host writes context as markdown (no engine model); the stage prompts must carry it.
-  store.writeContext(p.id, '# HostCtx — project context\n\n## Personas\n\n- indie SaaS founders\n\n## Competitors\n\n- spreadsheets, status quo\n');
+  store.writeContext(p.id, '# HostCtx — project context\n\n## Personas\n\n- indie SaaS founders\n\n## Competitors\n\nSee [competitors.md](./competitors.md).\n');
+  store.writeCompetitors(p.id, '# Competitors\n\n## SheetCo\n\n- **Overlap:** spreadsheets, status quo\n');
+  store.writeEcosystem(p.id, '# Ecosystem\n\n## RuntimeCo — Dependency, current\n');
   const kase = store.createCase(p.id, 'Add CSV export', 'users keep asking to export their data', 1);
   const frame = await stagePrompt(store, store.getProject(p.id), store.getCase(kase.id), 'frame');
   assert.match(frame.system, /indie SaaS founders/, 'the host-written markdown context reaches the frame prompt');
+  assert.match(frame.system, /SheetCo/, 'the canonical competitor context reaches the frame prompt');
+  assert.match(frame.system, /RuntimeCo/, 'the canonical ecosystem context reaches the frame prompt');
 });
 
 test('case lenses select distinct concise prompts, one-pagers, and prototype eligibility', async () => {
