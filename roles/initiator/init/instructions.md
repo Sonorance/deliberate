@@ -1,6 +1,6 @@
 ---
 agent: init
-role: Initiator — sets up a project's context. Reads the repo + attached sources and fills the project-context files (product.md + competitors.md + ecosystem.md) that ground every Case, brief, product readout, matchup, and analysis.
+role: Initiator — sets up a project's context. Reads the repo + attached sources and fills the project-context files (product.md + competitors.md + ecosystem.md) that ground every case, brief, product readout, matchup, and analysis.
 ---
 # Agent — Init (the Initiator)
 
@@ -25,7 +25,7 @@ Fill **every** section with real, grounded content, using **lists** for enumerat
   **Competitors**, **Ecosystem**, **Market**, **Business model & pricing**, **Distribution & channels**,
   **Customer voice**, **Metrics & traction**, **Strategy & principles**, **Objective**, **Non-goals**.
 - The **commercial / go-to-market** sections (positioning, business model & pricing, distribution &
-  channels, metrics & traction) ground not just Cases but the brief and future PM / exec / marketing /
+  channels, metrics & traction) ground not just cases but the brief and future PM / exec / marketing /
   business-development / strategy work — make them as concrete as the sources allow.
 - **Personas & Jobs-to-be-done:** apply the **`jtbd`** method — infer the personas and their jobs from the
   evidence (never invent them). **If the product exposes an interface an AI agent can drive** (an API, an

@@ -5,13 +5,37 @@
  * host produces via `persistStage` (clean + heading-normalize + score + advance).
  * The host agent does all the reasoning; there is no engine-run funnel.
  */
-import { nextStage } from 'sonorance/plugins/deliberate/stages.mjs';
+import { STAGES, nextStage } from 'sonorance/plugins/deliberate/stages.mjs';
 import { STATE, STATUS } from 'sonorance/plugins/deliberate/domain.mjs';
 import { agentConfig } from './roles.mjs';
 import { read, loadBody, loadSkills } from './prompts.mjs';
 import { unwrapProse } from 'sonorance/plugins/deliberate/markdown.mjs';
+import { caseLens, caseLensLabel } from './lenses.mjs';
 
 export const scoreOf = (t) => { const m = t.match(/(?:total weighted score|score)[:*\s]+(10(?:\.0)?|[0-9](?:\.\d)?)/i); return m ? +m[1] : null; };
+
+export function requireCompletedCase(store, kase, companion) {
+  const completed = new Set(
+    store.listStages(kase?.id)
+      .filter((stage) => stage.status === STATUS.DONE)
+      .map((stage) => stage.name),
+  );
+  if (kase?.state !== STATE.DONE || STAGES.some((stage) => !completed.has(stage))) {
+    throw new Error(`${companion} requires a completed case (frame → shape → launch)`);
+  }
+}
+
+function requireExpectedStage(kase, stage) {
+  if (!STAGES.includes(stage)) throw new Error(`Unknown analysis stage: ${stage}`);
+  const expected = kase?.state === STATE.NEW
+    ? STAGES[0]
+    : STAGES.includes(kase?.state) ? kase.state : null;
+  if (stage !== expected) {
+    throw new Error(expected
+      ? `Cannot persist ${stage}; the next analysis stage is ${expected}`
+      : `Cannot persist ${stage}; the case analysis is already complete`);
+  }
+}
 
 // Deterministically scrub an artifact before it's saved as an end-user deliverable:
 //  1. drop any line the agent copied verbatim from the output template's italic
@@ -24,7 +48,7 @@ export const scoreOf = (t) => { const m = t.match(/(?:total weighted score|score
 // newline-sensitive) is never reflowed.
 const NORM = (s) => s.replace(/[*_`>]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
 const IS_ITALIC_LINE = (t) => /^(?:>\s*|[-*]\s+|\d+[.)]\s+)?_[^_].*_$/.test(t);
-const META_RE = /\b(?:my |the )?previous (?:response|answer|session|run|turn)\b|\balready (?:produced|generated|created|completed|provided)\b|\bthe task was to\b|\bas (?:an? )?(?:ai|assistant|language model)\b|\bi (?:have )?(?:already )?(?:produced|generated|created|completed|provided|wrote|written)\b|\bin (?:my|this) (?:previous |earlier )?(?:response|answer|session|run|turn)\b|\bthis (?:completes|completed) the task\b|\b(?:no|any) (?:further|additional) (?:action|output) (?:is )?(?:needed|required)\b/i;
+const META_RE = /\b(?:my |the )?previous (?:response|answer|session|run|turn)\b|\balready (?:produced|generated|created|completed|provided)\b|\bthe task was to\b|\bas (?:an? )?ai(?: (?:assistant|language model))?(?=[,.;]|$)|\bas (?:an? )?(?:assistant|language model)(?=[,.;]|$)|\bi (?:have )?(?:already )?(?:produced|generated|created|completed|provided|wrote|written)\b|\bin (?:my|this) (?:previous |earlier )?(?:response|answer|session|run|turn)\b|\bthis (?:completes|completed) the task\b|\b(?:no|any) (?:further|additional) (?:action|output) (?:is )?(?:needed|required)\b/i;
 export function cleanArtifact(art, template) {
   const guide = new Set();
   for (const l of (template || '').split('\n')) { const t = l.trim(); if (IS_ITALIC_LINE(t)) { const n = NORM(t); if (n) guide.add(n); } }
@@ -47,11 +71,12 @@ export function cleanArtifact(art, template) {
 // contradicts or loses — the work before it. With only a few coherent stages feeding
 // one document, full context beats summary-chaining ("context is king").
 export function caseContext(store, kase) {
+  const lens = caseLens(kase);
   const prior = store.listStages(kase.id)
     .filter(s => s.status === STATUS.DONE)
     .map(s => `## ${s.name}\n${store.readStage(kase.project_id, kase.id, s.name, 'output_full.md') || ''}`)
     .join('\n\n');
-  return `# ${kase.title}\n\n## Case\n${kase.summary || kase.description || ''}\n\n${prior}`;
+  return `# ${kase.title}\n\n## Decision lens\n${caseLensLabel(lens)} (\`${lens}\`)\n\n## case\n${kase.summary || kase.description || ''}\n\n${prior}`;
 }
 
 // Per-project context block: the host-written markdown context (product.md) +
@@ -78,7 +103,8 @@ export function projectContext(store, project) {
 // skill hands this to the host agent / a Task sub-agent; the engine feeds it to
 // `infer`. Returns `tpl` too (the template block reused for the revise turn).
 export async function stagePrompt(store, project, kase, stage, note = null) {
-  const cfg = agentConfig(stage);
+  const lens = caseLens(kase);
+  const cfg = agentConfig(stage, undefined, lens);
   const instruction = await loadBody(cfg.instructions);
   const agents = await read('AGENTS.md');
   const template = await read(cfg.templates.default);
@@ -87,8 +113,8 @@ export async function stagePrompt(store, project, kase, stage, note = null) {
   const system = `${agents}\n\n${pctx}\n\n## Skills\n${skillsBlock}\n\n## Stage instructions\n${instruction}`;
   const ctx = caseContext(store, kase);
   const tpl = template ? `\n\n----- OUTPUT TEMPLATE -----\n(Fill EVERY section with real, grounded content. The italic _..._ lines and parentheticals are guidance for you — replace them with your actual analysis. NEVER echo the template's guidance, placeholder, or instruction text in your output, and do not add a "grounding", "assumptions", or "notes" section.)\n${template}` : '';
-  const user = `Context so far:\n${ctx}\nProduce ${stage}.${tpl}${note ? `\nIterate note: ${note}` : ''}`;
-  return { system, user, template, tpl, model: cfg.model };
+  const user = `Context so far:\n${ctx}\nProduce ${stage} for this ${caseLensLabel(lens)} case.${tpl}${note ? `\nIterate note: ${note}` : ''}`;
+  return { system, user, template, tpl, model: cfg.model, lens };
 }
 
 const STAGE_LABEL = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -119,7 +145,9 @@ function embedArtifact(md, stage) {
 // Shared by the engine run and `deliberate case analysis save`. (Only the three funnel
 // stages flow through here; the score/one-pager/prototype companions persist separately.)
 export async function persistStage(store, project, caseId, stage, rawArtifact) {
-  const cfg = agentConfig(stage);
+  const kase = store.getCase(caseId);
+  requireExpectedStage(kase, stage);
+  const cfg = agentConfig(stage, undefined, caseLens(kase));
   const template = await read(cfg.templates.default);
   const art = cleanArtifact(rawArtifact, template);
   const sc = scoreOf(art);

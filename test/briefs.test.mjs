@@ -106,7 +106,7 @@ test('briefPrompt: injects the reporting window + competitors + ecosystem + land
   assert.match(system, /name the actor\/product, the concrete change, its dated\/source-backed evidence/i, 'highlights must identify concrete, dated signals');
   assert.match(system, /why it matters specifically to this project/i, 'highlights must explain product-specific significance');
   assert.match(system, /what decision or investigation is warranted.*why it is valuable now.*decision it would unlock/is, 'actions must be decision-ready');
-  assert.match(system, /problems\/decisions that can become Cases, not as predetermined solutions/i, 'Case candidates preserve the problem and decision rather than prescribing a solution');
+  assert.match(system, /unresolved problems or decisions.*not predetermined solutions/i, 'case candidates preserve the problem and decision rather than prescribing a solution');
   assert.match(user, /Actor\/product.*concrete change with dated.*evidence.*why it matters to this project/is, 'the output template reinforces concrete highlights');
   assert.match(user, /Action\/decision.*motivating finding.*why now.*decision unlocked/is, 'the output template reinforces decision-ready actions');
 });

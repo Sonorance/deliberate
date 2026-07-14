@@ -41,6 +41,21 @@ test('stages: the funnel is frame → shape → launch; prototype/score are deco
   assert.deepEqual(followingStages('shape'), ['shape', 'launch']);
 });
 
+test('persistStage rejects unknown and out-of-order stages without forging completion', async () => {
+  const p = await createProject(store, 'StageOrder');
+  const kase = store.createCase(p.id, 'Ordered analysis', 'Keep the funnel ordered');
+  await assert.rejects(
+    persistStage(store, p, kase.id, 'launch', '# Launch\n\nToo early.'),
+    /next analysis stage is frame/,
+  );
+  await assert.rejects(
+    persistStage(store, p, kase.id, 'score', '# Score\n\nNot an analysis stage.'),
+    /Unknown analysis stage/,
+  );
+  assert.equal(store.getCase(kase.id).state, 'new');
+  assert.deepEqual(store.listStages(kase.id), []);
+});
+
 test('project isolation: two projects keep separate cases', async () => {
   const a = await createProject(store, 'Alpha');
   const b = await createProject(store, 'Beta');
@@ -77,10 +92,24 @@ test('score provenance is required and visibly distinguishes a same-session fall
   const p = await createProject(store, 'ScoreProvenance');
   const kase = store.createCase(p.id, 'A scored idea', 'Grounded input');
   await assert.rejects(
-    persistScore(store, p, kase, '# Score\n\n**Score:** 6'),
+    persistScore(store, p, kase, '# Score\n\n**Score:** 6', { model: 'claude-opus-4.8', independent: false }),
+    /requires a completed case/,
+  );
+  store.setCase(kase.id, { state: 'done' });
+  await assert.rejects(
+    persistScore(store, p, store.getCase(kase.id), '# Score\n\n**Score:** 6', { model: 'claude-opus-4.8', independent: false }),
+    /requires a completed case/,
+    'editing state alone cannot bypass the completed-stage invariant',
+  );
+  store.setCase(kase.id, { state: 'new' });
+  for (const stage of ['frame', 'shape', 'launch'])
+    await persistStage(store, p, kase.id, stage, `# ${stage}\n\nGrounded ${stage}.`);
+  const completed = store.getCase(kase.id);
+  await assert.rejects(
+    persistScore(store, p, completed, '# Score\n\n**Score:** 6'),
     /requires a valid evaluator model id/,
   );
-  await persistScore(store, p, kase, '# Score\n\n**Score:** 6', { model: 'claude-opus-4.8', independent: false });
+  await persistScore(store, p, completed, '# Score\n\n**Score:** 6', { model: 'claude-opus-4.8', independent: false });
   assert.match(store.readScore(kase.id), /Same-session fallback[\s\S]*not an independent second opinion/, 'fallback provenance is visible to readers');
   assert.match(store.readScore(kase.id), /^evaluator_independent: false$/m, 'fallback status is machine-readable');
 });
@@ -93,6 +122,11 @@ test('persistStage completes the analysis after launch (no gate, no prototype st
   assert.equal(r.next, null, 'launch is the last funnel stage');
   assert.equal(store.getCase(kase.id).state, 'done', 'the case is done after launch');
   assert.equal(r.gate, undefined, 'there is no engine gate in the persist result');
+  await assert.rejects(
+    persistStage(store, p, kase.id, 'launch', '# launch\n\nagain'),
+    /analysis is already complete/,
+    'a completed stage cannot be appended twice through the raw engine helper',
+  );
 });
 
 test('delete case removes it and its stages', async () => {
@@ -105,14 +139,16 @@ test('delete case removes it and its stages', async () => {
 });
 
 test('cleanArtifact strips echoed template guidance + internal/meta lines (keeps real content + code)', async () => {
-  const template = "# Compete\n\n_Whether today's alternatives already offer **what this Case proposes** — and where it differs._\n\n## Analysis\n";
+  const template = "# Compete\n\n_Whether today's alternatives already offer **what this case proposes** — and where it differs._\n\n## Analysis\n";
   const art = [
     '# Compete',
     '',
-    "_Whether today's alternatives already offer what this Case proposes — and where it differs._",  // reformatted copy (bold dropped)
+    "_Whether today's alternatives already offer what this case proposes — and where it differs._",  // reformatted copy (bold dropped)
     '',
     '## Analysis',
     'The artifact was already produced in my previous response.',   // internal/meta
+    'As an AI assistant, I cannot determine the answer.',          // internal/meta
+    'Dovetail uses Workspace Docs as AI context for research.',    // real content
     'Competitor X does not offer it today.',                        // real content
     '```',
     '_this italic line is inside code — keep it_',
@@ -121,6 +157,8 @@ test('cleanArtifact strips echoed template guidance + internal/meta lines (keeps
   const out = cleanArtifact(art, template);
   assert.ok(!/Whether today/.test(out), 'echoed template guidance is stripped even when reformatted');
   assert.ok(!/previous response/.test(out), 'internal/run/meta commentary is stripped');
+  assert.doesNotMatch(out, /cannot determine the answer/, 'as-an-AI meta commentary is stripped');
+  assert.match(out, /Workspace Docs as AI context/, 'legitimate AI-context language is preserved');
   assert.match(out, /Competitor X does not offer it today/, 'real content is preserved');
   assert.match(out, /# Compete/, 'the top header is preserved (UI strips it, not the engine)');
   assert.match(out, /## Analysis/, 'sub-headers are preserved');
@@ -138,6 +176,9 @@ test('persistStage unwraps hard-wrapped prose in the record; persistPrototype ne
   assert.doesNotMatch(rec, /app, so\nsharing/, 'no mid-sentence hard break survives in the record');
   // The prototype's bare HTML/JS must survive line-for-line (never unwrapped).
   const html = '```html\n<!DOCTYPE html>\n<script>\nconst a = 1\nconst b = 2\n</script>\n```';
+  await assert.rejects(() => persistPrototype(store, p, store.getCase(s.id), html), /requires a completed case/);
+  for (const stage of ['shape', 'launch'])
+    await persistStage(store, p, s.id, stage, `# ${stage}\n\nGrounded ${stage}.`);
   await persistPrototype(store, p, store.getCase(s.id), html);
   const proto = store.readStage(p.id, s.id, 'prototype', 'index.html');
   assert.match(proto, /const a = 1\nconst b = 2/, 'the prototype JS keeps its line breaks (not joined)');

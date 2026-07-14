@@ -22,7 +22,7 @@ Great criticism does two jobs at once. Do both, in this order:
 
 **1. The floor — must-fix (gates the verdict).** Correctness, grounding, alignment,
 stage-rubric compliance. These are things that make the work *wrong* — fabricated demand,
-drift from strategy/non-goals, a Prototype that doesn't run, a Case scored on solution
+drift from strategy/non-goals, a Prototype that doesn't run, a case scored on solution
 effort. Any of these → `revise` (or `block` if unrecoverable in one pass).
 
 **2. The ceiling — the single biggest lift (elevates).** Beyond "not wrong," name the

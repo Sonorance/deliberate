@@ -2,8 +2,8 @@
 
 > How **Score** turns the AI-era **win-conditions** (defined in the `win-conditions` skill)
 > into a single go / no-go score. The win-conditions say what makes a **product** win over
-> time; Score scores a single **Case** — so the test is whether the Case **advances or
-> unblocks** those win-conditions, **not** whether one Case embodies all of them. Score
+> time; Score scores a single **case** — so the test is whether the case **advances or
+> unblocks** those win-conditions, **not** whether one case embodies all of them. Score
 > **project-relative** (against *this* project's strategy/objective from the derived context),
 > grounded in the Frame artifact (the problem + competitive landscape), on a **0–10** scale.
 >
@@ -17,29 +17,29 @@ When building is nearly free, that a thing *can* be built tells you nothing. Jud
 **opportunity**.
 
 ## What gates, and what only lifts
-Not every good Case is a moat. Some **drive** a win-condition (build the flywheel, own a new
+Not every good case is a moat. Some **drive** a win-condition (build the flywheel, own a new
 channel); many **enable** one (remove a limitation, reach parity, unblock or **broaden the
 audience**). Both can be high-value — so separate the *necessary* conditions from the *value
 multipliers*.
 
-**Kill-gates — the case-level necessities (a Case must clear all three):**
+**Kill-gates — the case-level necessities (a case must clear all three):**
 - **Durable, AI-proof demand** — a real, important need that ubiquitous AI makes *more*
   valuable, not obsolete. No real demand → dead.
 - **Reachable audience** — the people who need it can actually get and adopt it (AI-era
-  distribution at the Case level). A Case that **broadens** the audience scores *well* here —
+  distribution at the case level). A case that **broadens** the audience scores *well* here —
   it is not penalised for it.
 - **On-strategy & trust-safe** — it advances (or at least doesn't contradict) this project's
   strategy, and it doesn't erode trust or violate a non-goal. A non-goal / hard-constraint
   violation is an automatic **reject**.
 
-**Value multipliers — raise a passing Case, never gate it:**
+**Value multipliers — raise a passing case, never gate it:**
 - **Compounding flywheel / moat** — how much durable, proprietary advantage it builds (data,
   network, switching costs). Strong = big upside; **weak is fine for an enabler.**
 - **Differentiation, taste & delight, agent-readiness, personalization, openness, "why now."**
   (Full definitions in `win-conditions`.)
 
 ## Credit enablers and table-stakes (don't punish parity)
-A Case that removes a key limitation, reaches competitive parity, or **broadens the target
+A case that removes a key limitation, reaches competitive parity, or **broadens the target
 audience** is legitimately valuable **even with no standalone moat**. Score it on the demand
 it unlocks and the audience it opens, and recognise it **raises the ceiling** for future
 flywheel and differentiation. **Never reject or dock an enabler merely for "not being a moat
@@ -53,17 +53,17 @@ flag fabricated demand, reach, or advantage.
 
 ## How to aggregate — gates, then weakest-link + multipliers (NOT a weighted average)
 **Do not average the factors.** A weighted mean lets a strong factor paper over a fatal flaw
-and rewards bland, well-rounded Cases over the spiky ones that matter. Instead:
+and rewards bland, well-rounded cases over the spiky ones that matter. Instead:
 
 **Step 1 — Kill-gates.** If any of the three necessities (demand · reachable audience ·
 on-strategy/trust-safe) is essentially absent (≤ 3/10), or a non-goal / hard constraint is
 violated → **reject**; the score is that low necessity's value. No multiplier buys it back.
 
-**Step 2 — Floor by the weakest necessity, then lift with multipliers.** For a Case that
+**Step 2 — Floor by the weakest necessity, then lift with multipliers.** For a case that
 clears the gates, the floor is set by the weakest of the three necessities (a chain is only as
 strong as its weakest link). From there the **multipliers raise the score** — a strong
 moat/flywheel or sharp differentiation pushes toward the top; their **absence does not pull an
-enabler down**. An enabler with strong demand + audience and a weak moat is a **good** Case,
+enabler down**. An enabler with strong demand + audience and a weak moat is a **good** case,
 not a weak one.
 
 **Step 3 — Verdict.** Map to the bands. Prefer a defensible whole or half number — the gate
@@ -89,7 +89,7 @@ and the single thing that would change the call. Fewer, sharper points beat comp
 one a clear sentence. Do **not** dump the raw factor table, the per-factor numbers, or the math.
 
 ## Anti-patterns
-- **Punishing an enabler / table-stakes Case for lacking a standalone moat or flywheel** —
+- **Punishing an enabler / table-stakes case for lacking a standalone moat or flywheel** —
   removing a limitation and broadening the audience *is* the value; score it on that.
 - **Citing kill-gates that merely clear as justification for the score** — a passing gate is a
   pass, not a driver; name only the factors that actually move the number.
