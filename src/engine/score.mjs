@@ -17,8 +17,9 @@
 import { EVALUATOR_STAGE } from 'sonorance/plugins/deliberate/stages.mjs';
 import { agentConfig } from './roles.mjs';
 import { read, loadBody, loadSkills } from './prompts.mjs';
-import { projectContext, caseContext, cleanArtifact, scoreOf } from './pipeline.mjs';
+import { projectContext, caseContext, cleanArtifact, scoreOf, requireCompletedCase } from './pipeline.mjs';
 import { unwrapProse } from 'sonorance/plugins/deliberate/markdown.mjs';
+import { caseLens, caseLensLabel } from './lenses.mjs';
 
 // The config key (roles/config.yaml) + role folder for the Evaluator's score sub-job.
 // It IS the EVALUATOR_STAGE, but never enters the funnel state machine (STAGES) — the
@@ -30,7 +31,9 @@ export const SCORE_STAGE = EVALUATOR_STAGE;
 // The in-harness skill hands this to an ISOLATED, cross-vendor sub-agent — decorrelated
 // from the Analyst — which returns the scored verdict.
 export async function scorePrompt(store, project, kase) {
-  const cfg = agentConfig(SCORE_STAGE);
+  requireCompletedCase(store, kase, 'Score');
+  const lens = caseLens(kase);
+  const cfg = agentConfig(SCORE_STAGE, undefined, lens);
   const instruction = await loadBody(cfg.instructions);
   const agents = await read('AGENTS.md');
   const template = await read(cfg.templates.default);
@@ -41,8 +44,8 @@ export async function scorePrompt(store, project, kase) {
   const tpl = template
     ? `\n\n----- OUTPUT TEMPLATE -----\n(Fill EVERY section with real, grounded content drawn ONLY from the record below. The italic _..._ lines and parentheticals are guidance for you — replace them; never echo the template's guidance text, and do not add a "grounding"/"notes"/"assumptions" section.)\n${template}`
     : '';
-  const user = `Case record to evaluate (score ONLY this — introduce no new claims or evidence):\n${ctx}\nProduce the score.${tpl}`;
-  return { system, user, template, model: cfg.model };
+  const user = `${caseLensLabel(lens)} case record to evaluate (score ONLY this — introduce no new claims or evidence):\n${ctx}\nProduce the score.${tpl}`;
+  return { system, user, template, model: cfg.model, lens };
 }
 
 // Persist a produced Score (LLM-free): clean it, unwrap hard-wrapped prose, extract the
@@ -50,6 +53,7 @@ export async function scorePrompt(store, project, kase) {
 // number and evaluator provenance onto the record + refreshes its link). Shared by the
 // engine and `case score save`.
 export async function persistScore(store, project, kase, rawArtifact, provenance) {
+  requireCompletedCase(store, kase, 'Score');
   const model = String(provenance?.model || '').trim();
   if (!/^[A-Za-z0-9._:/-]{1,100}$/.test(model)) {
     throw new Error('Score provenance requires a valid evaluator model id');
@@ -57,7 +61,7 @@ export async function persistScore(store, project, kase, rawArtifact, provenance
   if (typeof provenance?.independent !== 'boolean') {
     throw new Error('Score provenance requires an independence status');
   }
-  const cfg = agentConfig(SCORE_STAGE);
+  const cfg = agentConfig(SCORE_STAGE, undefined, caseLens(kase));
   const template = await read(cfg.templates.default);
   const body = unwrapProse(cleanArtifact(rawArtifact, template));
   const number = scoreOf(body);

@@ -2,7 +2,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 // Isolate SONORANCE_HOME + force the offline stub model before importing the engine.
 const home = mkdtempSync(join(tmpdir(), 'dlb-test-'));
@@ -41,6 +41,21 @@ test('stages: the funnel is frame → shape → launch; prototype/score are deco
   assert.deepEqual(followingStages('shape'), ['shape', 'launch']);
 });
 
+test('persistStage rejects unknown and out-of-order stages without forging completion', async () => {
+  const p = await createProject(store, 'StageOrder');
+  const kase = store.createCase(p.id, 'Ordered analysis', 'Keep the funnel ordered');
+  await assert.rejects(
+    persistStage(store, p, kase.id, 'launch', '# Launch\n\nToo early.'),
+    /next analysis stage is frame/,
+  );
+  await assert.rejects(
+    persistStage(store, p, kase.id, 'score', '# Score\n\nNot an analysis stage.'),
+    /Unknown analysis stage/,
+  );
+  assert.equal(store.getCase(kase.id).state, 'new');
+  assert.deepEqual(store.listStages(kase.id), []);
+});
+
 test('project isolation: two projects keep separate cases', async () => {
   const a = await createProject(store, 'Alpha');
   const b = await createProject(store, 'Beta');
@@ -77,10 +92,24 @@ test('score provenance is required and visibly distinguishes a same-session fall
   const p = await createProject(store, 'ScoreProvenance');
   const kase = store.createCase(p.id, 'A scored idea', 'Grounded input');
   await assert.rejects(
-    persistScore(store, p, kase, '# Score\n\n**Score:** 6'),
+    persistScore(store, p, kase, '# Score\n\n**Score:** 6', { model: 'claude-opus-4.8', independent: false }),
+    /requires a completed case/,
+  );
+  store.setCase(kase.id, { state: 'done' });
+  await assert.rejects(
+    persistScore(store, p, store.getCase(kase.id), '# Score\n\n**Score:** 6', { model: 'claude-opus-4.8', independent: false }),
+    /requires a completed case/,
+    'editing state alone cannot bypass the completed-stage invariant',
+  );
+  store.setCase(kase.id, { state: 'new' });
+  for (const stage of ['frame', 'shape', 'launch'])
+    await persistStage(store, p, kase.id, stage, `# ${stage}\n\nGrounded ${stage}.`);
+  const completed = store.getCase(kase.id);
+  await assert.rejects(
+    persistScore(store, p, completed, '# Score\n\n**Score:** 6'),
     /requires a valid evaluator model id/,
   );
-  await persistScore(store, p, kase, '# Score\n\n**Score:** 6', { model: 'claude-opus-4.8', independent: false });
+  await persistScore(store, p, completed, '# Score\n\n**Score:** 6', { model: 'claude-opus-4.8', independent: false });
   assert.match(store.readScore(kase.id), /Same-session fallback[\s\S]*not an independent second opinion/, 'fallback provenance is visible to readers');
   assert.match(store.readScore(kase.id), /^evaluator_independent: false$/m, 'fallback status is machine-readable');
 });
@@ -93,6 +122,11 @@ test('persistStage completes the analysis after launch (no gate, no prototype st
   assert.equal(r.next, null, 'launch is the last funnel stage');
   assert.equal(store.getCase(kase.id).state, 'done', 'the case is done after launch');
   assert.equal(r.gate, undefined, 'there is no engine gate in the persist result');
+  await assert.rejects(
+    persistStage(store, p, kase.id, 'launch', '# launch\n\nagain'),
+    /analysis is already complete/,
+    'a completed stage cannot be appended twice through the raw engine helper',
+  );
 });
 
 test('delete case removes it and its stages', async () => {
@@ -105,14 +139,16 @@ test('delete case removes it and its stages', async () => {
 });
 
 test('cleanArtifact strips echoed template guidance + internal/meta lines (keeps real content + code)', async () => {
-  const template = "# Compete\n\n_Whether today's alternatives already offer **what this Case proposes** — and where it differs._\n\n## Analysis\n";
+  const template = "# Compete\n\n_Whether today's alternatives already offer **what this case proposes** — and where it differs._\n\n## Analysis\n";
   const art = [
     '# Compete',
     '',
-    "_Whether today's alternatives already offer what this Case proposes — and where it differs._",  // reformatted copy (bold dropped)
+    "_Whether today's alternatives already offer what this case proposes — and where it differs._",  // reformatted copy (bold dropped)
     '',
     '## Analysis',
     'The artifact was already produced in my previous response.',   // internal/meta
+    'As an AI assistant, I cannot determine the answer.',          // internal/meta
+    'Dovetail uses Workspace Docs as AI context for research.',    // real content
     'Competitor X does not offer it today.',                        // real content
     '```',
     '_this italic line is inside code — keep it_',
@@ -121,6 +157,8 @@ test('cleanArtifact strips echoed template guidance + internal/meta lines (keeps
   const out = cleanArtifact(art, template);
   assert.ok(!/Whether today/.test(out), 'echoed template guidance is stripped even when reformatted');
   assert.ok(!/previous response/.test(out), 'internal/run/meta commentary is stripped');
+  assert.doesNotMatch(out, /cannot determine the answer/, 'as-an-AI meta commentary is stripped');
+  assert.match(out, /Workspace Docs as AI context/, 'legitimate AI-context language is preserved');
   assert.match(out, /Competitor X does not offer it today/, 'real content is preserved');
   assert.match(out, /# Compete/, 'the top header is preserved (UI strips it, not the engine)');
   assert.match(out, /## Analysis/, 'sub-headers are preserved');
@@ -138,6 +176,9 @@ test('persistStage unwraps hard-wrapped prose in the record; persistPrototype ne
   assert.doesNotMatch(rec, /app, so\nsharing/, 'no mid-sentence hard break survives in the record');
   // The prototype's bare HTML/JS must survive line-for-line (never unwrapped).
   const html = '```html\n<!DOCTYPE html>\n<script>\nconst a = 1\nconst b = 2\n</script>\n```';
+  await assert.rejects(() => persistPrototype(store, p, store.getCase(s.id), html), /requires a completed case/);
+  for (const stage of ['shape', 'launch'])
+    await persistStage(store, p, s.id, stage, `# ${stage}\n\nGrounded ${stage}.`);
   await persistPrototype(store, p, store.getCase(s.id), html);
   const proto = store.readStage(p.id, s.id, 'prototype', 'index.html');
   assert.match(proto, /const a = 1\nconst b = 2/, 'the prototype JS keeps its line breaks (not joined)');
@@ -148,18 +189,26 @@ test('project context is injected into agent prompts (Copilot grounding)', async
   store.addSource(p.id, 'github.com/me/app'); store.setRepo(p.id, 'github.com/me/app');
   store.writeContext(p.id, '# App — project context\n\n## Personas\n\n- indie SaaS founders\n\n## Objective\n\nretention\n');
   const block = projectContext(store, store.getProject(p.id));
-  assert.match(block, /## Project context \(read-only\)/, 'the block wraps the host-written context');
+  assert.match(block, /## Product context \(product\.md, read-only\)/, 'the block wraps the host-written context');
   assert.match(block, /indie SaaS founders/); assert.match(block, /retention/);
   assert.match(block, /read-only.*github\.com\/me\/app/, 'the connected repo is noted');
-  assert.match(block, /Attached sources:/);
+  assert.match(block, /Attached external sources:/);
 });
 
-test('projectContext passes each source WITH its description to the agents (not a bare URL)', async () => {
+test('projectContext passes external sources with descriptions and excludes legacy in-project entries', async () => {
   const p = await createProject(store, 'CtxSrc');
   store.addSource(p.id, 'https://docs.example.com', 'The product docs site — grounds terminology and features.');
-  store.addSource(p.id, '/local/repo', null);
+  store.writeCompetitors(p.id, '# Competitors\n\n## RivalCo\n\n- **Overlap:** Direct rival.');
+  store.writeEcosystem(p.id, '# Ecosystem\n\n## PlatformCo — Dependency, current\n\n- **What it is to us:** Runtime.');
+  const outside = join(dirname(p.dir), 'external-research.md');
+  const inside = join(p.dir, 'docs', 'local-context.md');
+  store.addSource(p.id, outside, null);
+  store.addSource(p.id, inside, 'Legacy local source');
   const ctx = projectContext(store, store.getProject(p.id));
-  assert.match(ctx, /### Attached sources:/, 'an attached-sources section is present');
+  assert.match(ctx, /### Attached external sources:/, 'an attached-sources section is present');
   assert.match(ctx, /https:\/\/docs\.example\.com — The product docs site/, 'a described source is passed with its blurb');
-  assert.match(ctx, /\/local\/repo(?! —)/, 'a source without a description is still listed (no dangling dash)');
+  assert.match(ctx, /## Competitor context \(competitors\.md, read-only\)[\s\S]*RivalCo/);
+  assert.match(ctx, /## Ecosystem context \(ecosystem\.md, read-only\)[\s\S]*PlatformCo/);
+  assert.match(ctx, /external-research\.md(?! —)/, 'an external path without a description is still listed (no dangling dash)');
+  assert.doesNotMatch(ctx, /local-context\.md|Legacy local source/, 'in-project source entries are not injected');
 });

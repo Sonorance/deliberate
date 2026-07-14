@@ -28,10 +28,9 @@ Never present an inference or assumption as a fact. If the project context or th
 thin, say what you could and couldn't ground — don't invent features, pricing, funding, or adoption.
 
 Grounding sources: `deliberate/context/product.md` (our positioning, personas, JTBD, strategy) +
-`deliberate/context/competitors.md` (if the rival is already tracked, its monitoring sources) + the
+`deliberate/context/competitors.md` (the canonical competitor roster and, if the rival is already tracked, its details and monitoring sources) + the
 attached sources + your own first-party research of the rival. If the rival isn't tracked yet, **ask the
-user whether to add it** (default yes) to the Competitors roster in `product.md` and its monitoring sources
-in `competitors.md` so `brief` starts watching it — closing the loop between the two commands.
+user whether to add its details and monitoring sources** (default yes) to `competitors.md` so `brief` starts watching it — closing the loop between the two commands. Never duplicate the rival in `product.md`.
 
 ## 3. Read across every dimension — who's ahead, and why
 Work each dimension and end each with an honest **Edge: us / them / even — because…**. Cover, at minimum:

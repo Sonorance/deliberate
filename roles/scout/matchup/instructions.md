@@ -20,11 +20,7 @@ canonical doc in place when the rival moves (git carries history; `brief` signal
 - **The existing matchup** — when one already exists for this rival, its full body is injected as
   read-only prior context. You are **refreshing it in place**: keep what is still true, correct or update
   what has changed, restamp the date. A first-ever matchup for a rival has none.
-- **The project context** (`deliberate/context/product.md`) — the product, its personas, jobs-to-be-done,
-  positioning, and strategy — plus **`deliberate/context/competitors.md`**. If the rival is already tracked
-  there, its official monitoring sources ground the read for free; if not, research it first-party from
-  scratch and **ask the host to add it** (default yes) to the competitors roster (`product.md` +
-  `competitors.md`) so `brief` starts tracking it.
+- **The project context** (`deliberate/context/product.md`) — the product, its personas, jobs-to-be-done, positioning, and strategy — plus **`deliberate/context/competitors.md`**, the single source of truth for competitor names, details, and monitoring sources. If the rival is already tracked there, that context grounds the read for free; if not, research it first-party from scratch and **ask the host to add its details and monitoring sources there** (default yes) so `brief` starts tracking it. Do not add a duplicate entry to `product.md`.
 - **The attached sources** and the read-only repo — additional grounding for our side of the matchup.
 - The **`head-to-head`** method (which you must apply), plus **`jtbd`**, **`positioning`**,
   **`prioritization`**, **`tech-constraints`**, and **`landscape-scan`** (its §2 source discipline).
@@ -47,6 +43,7 @@ Research the rival first-party and write the matchup, applying `head-to-head` th
    the fight to our ground, plus the arena we deliberately cede), and prioritized **opportunities** (apply
    `prioritization`: Borrow by value ÷ effort — learn, don't copy, respect their license — Partner/interop,
    and Respond).
+5. **Identify case-worthy decisions** — from the matchup's strongest actionable insights, select at most three consequential unresolved choices whose alternatives and commitments need analysis. Label each as a product, market, strategy, or platform case according to its primary decision, and state the triggering insight, why analysis is valuable now, and what decision it would unlock. Routine execution, bounded research, instrumentation, and already-decided work remain direct opportunities, not cases. An empty case-candidate list is valid.
 
 ## Output
 Fill in your stage's **output template** (`roles/scout/matchup/output-template.md`), provided at runtime.
@@ -58,6 +55,7 @@ Set the **As of** line to the given date (human-readable). Keep every bullet **�
   **assumption** (stated as such). No link, no claim; never fabricate features, pricing, funding, or
   adoption.
 - **Be honest.** Name our real weaknesses; let "even" stand where it's true. Steelman before you strike.
+- **Keep case candidates selective.** They are decision prompts grounded in the matchup, not a restatement of every opportunity and never predetermined solutions.
 - **Do not** add a grounding/assumptions/notes/methodology section or a slide outline / "deck kit", and do
   not echo the template's italic guidance — replace it with real, grounded content.
 

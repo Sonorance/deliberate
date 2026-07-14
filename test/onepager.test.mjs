@@ -21,7 +21,7 @@ before(async () => {
   project = await createProject(store, 'OnePagerProj');
   kase = store.createCase(project.id, 'CSV export', 'users keep asking to export their data', 1);
   // Drive the full analysis with stub artifacts so the record is complete before the one-pager.
-  for (const st of ['frame', 'score', 'shape', 'launch'])
+  for (const st of ['frame', 'shape', 'launch'])
     await persistStage(store, project, kase.id, st, `# ${st}\n\nGrounded ${st} content.\n\n**Score:** 7`);
 });
 after(() => { store.close(); rmSync(home, { recursive: true, force: true }); });
@@ -42,10 +42,18 @@ test('onepagerPrompt: customer-lens skills + the finished record + the one-pager
   assert.match(user, /## The customer's story/);
   assert.match(user, /## Why it matters/);
   assert.match(user, /## FAQ/);
-  // The narrative is a reverse press release — the customer's first-person voice.
+  // Product uses the customer-voice reverse PR-FAQ method.
   const sysFlat = system.replace(/\s+/g, ' ');
-  assert.match(sysFlat, /reverse press release/i, 'the one-pager is framed as a reverse press release');
-  assert.match(sysFlat, /first person/i, 'the narrative is in the customer\u2019s first-person voice');
+  assert.match(sysFlat, /reverse PR-FAQ/i, 'the product one-pager is framed as a reverse PR-FAQ');
+  assert.match(sysFlat, /first[- ]person/i, 'the narrative is in the customer\u2019s first-person voice');
+});
+
+test('onepagerPrompt rejects an incomplete case', async () => {
+  const incomplete = store.createCase(project.id, 'Incomplete', 'Not analyzed yet');
+  await assert.rejects(
+    () => onepagerPrompt(store, project, incomplete),
+    /requires a completed case/,
+  );
 });
 
 test('persistOnepager: writes one-pager.md beside analysis.md, unwraps prose, links it from the record', async () => {

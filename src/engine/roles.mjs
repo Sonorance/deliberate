@@ -13,6 +13,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { CASE_LENSES, DEFAULT_CASE_LENS, PROTOTYPE_LENSES, requireCaseLens } from './lenses.mjs';
 
 // The primary default model (used for the stub short-circuit in tests, and as the
 // fallback when a stage declares no explicit model in roles/config.yaml).
@@ -21,6 +22,7 @@ const MODEL = process.env.DELIBERATE_MODEL || process.env.MODEL || 'claude-opus-
 const CONFIG = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'roles', 'config.yaml');
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const KNOWN_STAGES = new Set(['frame', 'score', 'shape', 'launch', 'prototype', 'one-pager', 'brief', 'readout', 'matchup', 'init']);
+const LENSED_STAGES = new Set(['frame', 'score', 'shape', 'launch', 'prototype', 'one-pager']);
 const EFFORTS = new Set(['none', 'low', 'medium', 'high', 'xhigh', 'max']);
 const CONTEXTS = new Set(['default', 'long_context']);
 
@@ -73,7 +75,8 @@ function readConfig(configPath) {
 
 function validateStage(stage, cfg) {
   if (!cfg || typeof cfg !== 'object' || Array.isArray(cfg)) throw new Error(`Invalid roles/config.yaml: missing "${stage}" stage`);
-  const allowed = new Set(['instructions', 'templates', 'skills', ...(stage === 'score' ? ['model', 'reasoning_effort', 'context'] : [])]);
+  const lensed = LENSED_STAGES.has(stage);
+  const allowed = new Set(['instructions', 'templates', 'skills', ...(lensed ? ['lens_skills'] : []), ...(stage === 'score' ? ['model', 'reasoning_effort', 'context'] : [])]);
   for (const key of Object.keys(cfg)) {
     if (!allowed.has(key)) throw new Error(`Invalid roles/config.yaml: unexpected "${stage}.${key}"`);
   }
@@ -81,7 +84,10 @@ function validateStage(stage, cfg) {
   if (!cfg.templates || typeof cfg.templates !== 'object' || Array.isArray(cfg.templates) || !Object.keys(cfg.templates).length) {
     throw new Error(`Invalid roles/config.yaml: "${stage}.templates" must declare at least one output`);
   }
-  const requiredTemplates = stage === 'init' ? ['product', 'competitors', 'ecosystem'] : ['default'];
+  const supportedLenses = stage === 'prototype' ? PROTOTYPE_LENSES : CASE_LENSES;
+  const requiredTemplates = stage === 'init'
+    ? ['product', 'competitors', 'ecosystem']
+    : lensed ? supportedLenses : ['default'];
   for (const name of Object.keys(cfg.templates)) {
     if (!requiredTemplates.includes(name)) throw new Error(`Invalid roles/config.yaml: unexpected "${stage}.templates.${name}"`);
   }
@@ -100,10 +106,24 @@ function validateStage(stage, cfg) {
     throw new Error('Invalid roles/config.yaml: "score.context" is invalid');
   }
   if (!Array.isArray(cfg.skills)) throw new Error(`Invalid roles/config.yaml: "${stage}.skills" must be a list`);
+  if (lensed) {
+    if (!cfg.lens_skills || typeof cfg.lens_skills !== 'object' || Array.isArray(cfg.lens_skills)) {
+      throw new Error(`Invalid roles/config.yaml: "${stage}.lens_skills" is required`);
+    }
+    for (const lens of Object.keys(cfg.lens_skills)) {
+      if (!supportedLenses.includes(lens)) throw new Error(`Invalid roles/config.yaml: unexpected "${stage}.lens_skills.${lens}"`);
+    }
+    for (const lens of supportedLenses) {
+      if (!Array.isArray(cfg.lens_skills[lens])) {
+        throw new Error(`Invalid roles/config.yaml: "${stage}.lens_skills.${lens}" must be a list`);
+      }
+    }
+  }
   const paths = [
     [`${stage}.instructions`, cfg.instructions],
     ...Object.entries(cfg.templates).map(([name, path]) => [`${stage}.templates.${name}`, path]),
     ...cfg.skills.map((path, index) => [`${stage}.skills[${index}]`, path]),
+    ...(lensed ? supportedLenses.flatMap(lens => cfg.lens_skills[lens].map((path, index) => [`${stage}.lens_skills.${lens}[${index}]`, path])) : []),
   ];
   for (const [name, path] of paths) {
     if (typeof path !== 'string' || !path || !existsSync(join(ROOT, path))) {
@@ -114,24 +134,30 @@ function validateStage(stage, cfg) {
 }
 
 // Full resolved config for a pipeline stage: { model, instructions, templates, skills }.
-export function agentConfig(stage, configPath = CONFIG) {
+export function agentConfig(stage, configPath = CONFIG, lens = DEFAULT_CASE_LENS) {
   if (!KNOWN_STAGES.has(stage)) throw new Error(`Unknown role stage: ${stage}`);
   const all = readConfig(configPath);
   for (const known of KNOWN_STAGES) validateStage(known, all[known]);
   const cfg = all[stage];
+  const lensed = LENSED_STAGES.has(stage);
+  const selectedLens = lensed ? requireCaseLens(lens) : null;
+  if (lensed && !Object.hasOwn(cfg.templates, selectedLens)) {
+    throw new Error(`Stage "${stage}" is not available for ${selectedLens} cases`);
+  }
   const stub = (process.env.DELIBERATE_MODEL || '') === 'stub';
   // Templates are config-driven. Most stages declare a single `default` output template
   // (the section's shape); `init` declares three (`product` + `competitors` + `ecosystem`) and no `default`.
   return {
     model: stub ? MODEL : (cfg.model || MODEL),
     instructions: cfg.instructions,
-    templates: { ...cfg.templates },
-    skills: [...cfg.skills],
+    templates: lensed ? { default: cfg.templates[selectedLens] } : { ...cfg.templates },
+    skills: [...cfg.skills, ...(lensed ? cfg.lens_skills[selectedLens] : [])],
+    lens: selectedLens,
     // Optional Copilot CLI tuning knobs (null = don't pass the flag → CLI default).
     effort: cfg.reasoning_effort || null,
     context: cfg.context || null,
   };
 }
 
-export const modelFor = (agent) => agentConfig(agent).model;
-export const skillsFor = (agent) => agentConfig(agent).skills;
+export const modelFor = (agent, lens = DEFAULT_CASE_LENS) => agentConfig(agent, CONFIG, lens).model;
+export const skillsFor = (agent, lens = DEFAULT_CASE_LENS) => agentConfig(agent, CONFIG, lens).skills;

@@ -18,12 +18,16 @@ import { configureTelemetry, emit, shutdownTelemetry } from 'sonorance/telemetry
 import { ensureInstallId } from 'sonorance/identity.mjs';
 import { submitFeedback } from 'sonorance/feedback.mjs';
 import { CommentClientError, fetchCommentBatch, fetchCommentProject, resolveComment } from 'sonorance/comment-client.mjs';
+import { buildLaunchUrl } from 'sonorance/launch-url';
+import { installSonoranceSkill } from 'sonorance/skill-installer';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, cpSync, rmSync, realpathSync } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { vaultIgnoreEntries } from 'sonorance/plugins/deliberate/gitignore.mjs';
+import { caseLens, caseLensLabel, requireCaseLens, supportsPrototype } from '../engine/lenses.mjs';
+import { externalSources, isExternalSource } from '../engine/sources.mjs';
 
 const c = { g: '\x1b[32m', y: '\x1b[33m', r: '\x1b[31m', d: '\x1b[90m', w: '\x1b[1m', x: '\x1b[0m' };
 const sc = (n) => n == null ? '—' : c[scoreClass(n)] + n.toFixed(1) + c.x;
@@ -135,18 +139,23 @@ export const installEngineConfig = (repoRoot, engineFile, version = pkgVersion()
 // prompt → (produce in-harness) → save per stage.
 function caseNew(p, r) {
   const idea = firstArg(r); if (!idea) return P('usage: deliberate case "<idea>"');
-  const s = store.createCase(p.id, opt('--title') || provisionalTitle(idea), idea);
+  const lens = requireCaseLens(opt('--lens') || 'product');
+  const s = store.createCase(p.id, opt('--title') || provisionalTitle(idea), idea, { lens });
+  if (s?.lens !== lens) {
+    if (typeof store.deleteCase === 'function') store.deleteCase(s.id);
+    throw new CliError('Installed Sonorance does not support case lenses; upgrade the sonorance dependency');
+  }
   store.setActiveCase(p.id, s.id);
-  emit('case.created', {});
-  P(`case ${c.w}${s.id}${c.x} · ${s.slug} ${c.d}(active)${c.x}`);
-  P(`stages: ${STAGES.join(' → ')}  ${c.d}(score any time; prototype on request)${c.x}`);
+  emit('case.created', { lens });
+  P(`case ${c.w}${s.id}${c.x} · ${s.slug} · ${caseLensLabel(lens)} ${c.d}(active)${c.x}`);
+  P(`stages: ${STAGES.join(' → ')}  ${c.d}(score after analysis; eligible prototype on request)${c.x}`);
   P(`next: ${c.w}deliberate case analysis prompt${c.x}`);
 }
 // List cases and scores (active marked *).
 function caseList(p) {
   const active = store.getActiveCase(p.id);
   const list = store.listCases(p.id, { min: opt('--min') ? +opt('--min') : null, state: opt('--state') });
-  return P(`cases · ${p.name}\n` + (list.map(s => `  ${s.id === active ? c.g + '*' + c.x : ' '} ${c.w}${s.id}${c.x} ${sc(s.score)}  ${s.title} ${c.d}· ${s.state}${c.x}`).join('\n') || '  (none — deliberate case "<idea>")'));
+  return P(`cases · ${p.name}\n` + (list.map(s => `  ${s.id === active ? c.g + '*' + c.x : ' '} ${c.w}${s.id}${c.x} ${sc(s.score)}  ${s.title} ${c.d}· ${caseLensLabel(caseLens(s))} · ${s.state}${c.x}`).join('\n') || '  (none — deliberate case "<idea>")'));
 }
 // The next analysis stage to run for a case, inferred from its state (the skill never
 // passes a stage token): a new case starts at frame; a mid-funnel case runs its pending
@@ -162,18 +171,19 @@ async function caseAnalysis(p, action, args) {
   const kase = targetCase(p.id, args[0]);
   if (!kase) return P('no case — create one with deliberate case "<idea>"');
   const stage = analysisStage(kase);
-  if (!stage) return P(`${c.d}analysis complete for ${kase.id} — build the prototype on request →${c.x} ${c.w}deliberate case prototype prompt${c.x}`);
+  if (!stage) return P(`${c.d}analysis complete for ${kase.id} — next:${c.x} ${c.w}deliberate case score prompt${c.x}`);
   if (action === 'prompt') {
-    const { system, user } = await stagePrompt(store, p, kase, stage, opt('--note'));
-    return P(`MODEL: (produce in THIS session — you are the Analyst; no sub-agent) ${c.d}[stage: ${stage}]${c.x}\n===== SYSTEM =====\n${system}\n\n===== TASK =====\n${user}`);
+    const { system, user, lens } = await stagePrompt(store, p, kase, stage, opt('--note'));
+    return P(`MODEL: (produce in THIS session — you are the Analyst; no sub-agent) ${c.d}[stage: ${stage}; lens: ${lens}]${c.x}\n===== SYSTEM =====\n${system}\n\n===== TASK =====\n${user}`);
   }
   if (action === 'save') {
     const art = opt('--file') ? readFileSync(opt('--file'), 'utf8') : await readStdin();
     if (!art.trim()) return P('usage: deliberate case analysis save [id] --file <path>  (or pipe via stdin)');
     const rr = await persistStage(store, p, kase.id, stage, art);
-    emit('case.stage.completed', { stage });
-    if (!rr.next) emit('case.completed', {});
-    return P(`saved ${stage} → ${rr.next || c.g + 'analysis complete' + c.x + c.d + ' (ask to build the prototype)' + c.x}`);
+    const lens = caseLens(kase);
+    emit('case.stage.completed', { stage, lens });
+    if (!rr.next) emit('case.completed', { lens });
+    return P(`saved ${stage} → ${rr.next || c.g + 'analysis complete' + c.x + c.d + ' (score the finished recommendation next)' + c.x}`);
   }
   return P('usage: deliberate case analysis <prompt|save> [id]');
 }
@@ -196,12 +206,12 @@ async function caseScore(p, action, args) {
     const refreshed = kase.score != null;
     const independent = A.includes('--independent');
     const rr = await persistScore(store, p, kase, art, { model, independent });
-    if (rr.score != null) emit('case.scored', { verdict: verdictOf(rr.score), refreshed, independent });
+    if (rr.score != null) emit('case.scored', { verdict: verdictOf(rr.score), refreshed, independent, lens: caseLens(kase) });
     return P(`saved score${rr.score != null ? ` · ${sc(rr.score)}` : ''} · ${independent ? 'independent evaluator' : 'same-session fallback'} → deliberate/cases/.../score.md`);
   }
   return P('usage: deliberate case score <prompt|save> [id]');
 }
-// `case one-pager prompt|save [id]` — the internal reverse-PR-FAQ (customer-voice)
+// `case one-pager prompt|save [id]` — the lens-appropriate decision one-pager
 // companion beside analysis.md (CLI-only, host-internal; not on the skill surface).
 async function caseOnepager(p, action, args) {
   const kase = targetCase(p.id, args[0]);
@@ -232,6 +242,9 @@ async function caseProto(p, action, args) {
       ? built.map(b => `${b.surface || c.d + '(default)' + c.x} ${c.d}→ ${b.rel}${c.x}`).join('\n')
       : `${c.d}no prototype yet — build one with${c.x} deliberate case prototype prompt ${kase.id}`);
   }
+  if (!supportsPrototype(caseLens(kase))) {
+    throw new CliError(`prototype is not available for ${caseLensLabel(caseLens(kase))} cases`);
+  }
   if (action === 'prompt') {
     const { system, user } = await prototypePrompt(store, p, kase, surface);
     return P(`MODEL: (produce in THIS session — you are the Prototyper; no sub-agent)\n===== SYSTEM =====\n${system}\n\n===== TASK =====\n${user}`);
@@ -240,7 +253,7 @@ async function caseProto(p, action, args) {
     const art = opt('--file') ? readFileSync(opt('--file'), 'utf8') : await readStdin();
     if (!art.trim()) return P('usage: deliberate case prototype save [id] [--surface <slug>] --file <path>  (or pipe via stdin)');
     const { file, surface: slug } = await persistPrototype(store, p, kase, art, surface);
-    emit('prototype.built', { surface: slug || 'default' });
+    emit('prototype.built', { surface: slug || 'default', lens: caseLens(kase) });
     const rel = `prototype/${slug ? slug + '/' : ''}index.html`;
     return P(`saved prototype${slug ? ` (${slug})` : ''} → deliberate/cases/.../${rel} ${c.d}(${file?.exists ? 'written' : 'saved'})${c.x}`);
   }
@@ -290,12 +303,13 @@ export const cmds = {
     const abs = process.cwd();
     const p = openProjectVault(store, abs);
     setLast(p.id);
+    installSonoranceSkill({ projectDir: abs });
     // Keep machine state out of git (if the project uses a .gitignore): the platform `.sonorance/`
     // and any hidden dot-subfolder written under `deliberate/`. Never creates a .gitignore.
     const ignored = ensureGitignore(abs, vaultIgnoreEntries(abs));
     if (sub === 'prompt') {
       const { system, user } = await initPrompt(store, p);
-      return P(`MODEL: (produce in THIS session — you are the Initiator; read the repo + sources and edit the context files)\n===== SYSTEM =====\n${system}\n\n===== TASK =====\n${user}`);
+      return P(`MODEL: (produce in THIS session — you are the Initiator; read project files + external sources and edit the context files)\n===== SYSTEM =====\n${system}\n\n===== TASK =====\n${user}`);
     }
     P(`${c.g}✓${c.x} Deliberate initialized in ${abs}`);
     P(`  project: ${c.w}${p.name}${c.x} ${c.d}(${p.id})${c.x}`);
@@ -303,8 +317,8 @@ export const cmds = {
     P(`  ${c.d}the root README points agents to deliberate/context/${c.x}`);
     P(`  ${c.d}platform config (shared, cross-skill) is in the hidden ${c.x}${c.w}.sonorance/${c.x}${c.d} sibling${c.x}`);
     if (ignored.length) P(`  ${c.d}gitignored machine state: ${ignored.join(', ')}${c.x}`);
-    P(`  next → add sources: ${c.w}deliberate source add <location>${c.x}`);
-    P(`         get the method: ${c.w}deliberate init prompt${c.x} ${c.d}(then fill deliberate/context/product.md + competitors.md)${c.x}`);
+    P(`  next → add external sources: ${c.w}deliberate source add <location>${c.x}`);
+    P(`         get the method: ${c.w}deliberate init prompt${c.x} ${c.d}(then fill product.md + competitors.md + ecosystem.md)${c.x}`);
     P(`         first landscape: ${c.w}deliberate brief prompt${c.x}`);
   },
 
@@ -323,7 +337,7 @@ export const cmds = {
     const { startAppServer } = await import('../engine/app-boot.mjs');
     const port = opt('--port') ? +opt('--port') : undefined;
     const { port: boundPort } = await startAppServer(Number.isFinite(port) ? { port } : {});
-    const url = `http://localhost:${boundPort}`;
+    const url = buildLaunchUrl(`http://localhost:${boundPort}`, opt('--file'));
     // Record where this server is listening so `address`/`resolve` (and tools) reach THIS
     // server rather than guessing the default port. Cleared best-effort on exit.
     if (p) {
@@ -375,7 +389,7 @@ export const cmds = {
       : `  open any repo in Copilot CLI and run ${c.w}/deliberate init${c.x}`);
   },
 
-  // Context sources: URLs or local paths — recorded (with an optional inline description)
+  // External context sources: URLs or paths outside this project — recorded (with an optional inline description)
   // in the hand-editable `.sonorance/sources.md`. An optional description after the location
   // labels what the source is (e.g. `... add <location> "Roadmap"`). The host reads each
   // source itself in-harness; nothing is cloned or fetched by the CLI.
@@ -388,6 +402,9 @@ export const cmds = {
         if (!String(r[i]).startsWith('--')) pos.push(r[i]);
       }
       const location = pos[0]; if (!location) return P('usage: deliberate source add <location> ["<description>"] [--section <section>]');
+      if (!isExternalSource(p.dir, location)) {
+        throw new CliError('project sources must be outside the current project folder; in-project files are read automatically');
+      }
       const description = pos.slice(1).join(' ') || null;
       const section = opt('--section') || 'other';
       store.addSource(p.id, location, description, section);
@@ -395,7 +412,7 @@ export const cmds = {
     }
     if (sub === 'remove') { store.rmSource(p.id, r[0]); return P('removed'); }
     const grouped = new Map();
-    for (const source of store.listSources(p.id)) {
+    for (const source of externalSources(p.dir, store.listSources(p.id))) {
       const title = source.sectionTitle || 'Other';
       if (!grouped.has(title)) grouped.set(title, []);
       grouped.get(title).push(source);

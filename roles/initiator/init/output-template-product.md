@@ -1,10 +1,10 @@
 # {{name}} — project context
 
-_Written during `/deliberate init`: the host reads this repo + your attached sources and fills every
-section below with real, grounded content (replace the guidance). This grounds every Case, brief, and
+_Written during `/deliberate init`: the host reads this project's files + your attached external sources and fills every
+section below with real, grounded content (replace the guidance). This grounds every case, brief, and
 analysis — and future PM / exec / marketing / business-development / strategy work, not just product
 decisions. Keep it concise and use lists for enumerations. **Never fabricate.** If a section isn't covered by
-the repo or the attached sources, don't guess or invent — write `Not covered by the provided sources — add a
+the project files or the attached external sources, don't guess or invent — write `Not covered by the provided sources — add a
 source or fill in manually.` for that section, and ask the user to point to a source that has it (or provide
 the details)._
 
@@ -48,41 +48,15 @@ shaped into journeys and prototyped._
 
 ## Competitors
 
-_Identify several (typically 5–10, most-relevant first) real, named competitors or credible alternatives in
-this product's space — deduce them from the product category, this repo, and general knowledge even if the
-docs name none. **Cover the real field and order by relevance (most-direct first)**: 5–10 is typical, more in
-a crowded market, but never a token 2–3. Put emerging or adjacent players (new entrants, potential partners,
-dependencies, channels) under **Ecosystem**, not here, so this stays the direct-competitor roster. Never leave this
-empty; real companies/products only, and confirm them with the user._
-
-- _Competitor — one line on what they do and how they overlap._
-
-_The periodic brief monitors this whole list (a quiet competitor just gets "No meaningful updates."), so
-order by relevance rather than truncating. Official monitoring sources for each: see
-[competitors.md](./competitors.md)._
+See [competitors.md](./competitors.md) for the canonical competitor roster, details, and monitoring sources.
 
 ## Ecosystem
 
-_The named players in this product's orbit — everything structural except direct competitors (above) and
-users (**Personas**). This is the second sources-backed roster the periodic brief monitors, so name **real,
-named** organisations / products / projects and classify each by **position** and **status**, ordered by
-strategic weight (most important first). Positions:_
-
-- _**Dependency** — only critical upstream platforms, services, runtimes, protocols, or embedded components whose roadmap, availability, security, licensing, pricing, or policy could materially affect the product or business. Manifests are evidence, not a roster: omit ordinary libraries, transitive packages, and implementation details. Note **embedded** vs external service, plus license and health where strategically relevant. `current` = in the stack today; `potential` = a credible candidate._
-- _**Complement** — a product used alongside this one that raises mutual value: an integration or
-  partnership candidate (not a direct competitor)._
-- _**Channel** — a downstream surface that carries the product to users: a marketplace, agent harness,
-  platform, embedder, or reseller._
-- _**Mover** — an actor that sets the rules or shapes the field: a platform owner, standards body, major
-  funder, or category-definer._
-
-_Format each as `Name — Position, current/potential — one line on what it is to us`. Include a player only when news about it could be meaningful and actionable; deduce relationships from manifests and product docs, but do not copy implementation dependencies wholesale. Official monitoring sources for each: see [ecosystem.md](./ecosystem.md)._
-
-- _Player — Position, current/potential — what it is to us._
+See [ecosystem.md](./ecosystem.md) for the canonical ecosystem roster, details, and monitoring sources.
 
 ## Market
 
-_The wider space the product operates in — grounding (with the **Ecosystem** roster above) for the periodic
+_The wider space the product operates in — grounding (with the roster in [ecosystem.md](./ecosystem.md)) for the periodic
 landscape brief's market lens (`/deliberate brief`), and useful to the go-to-market analysis. The *space*,
 not the *players* (named actors go under **Ecosystem**). Real, named things only; each bullet names its kind.
 List: the market / category; the standards & protocols the product participates in or depends on; and the key

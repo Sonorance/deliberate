@@ -24,7 +24,7 @@ Research the configured evidence and write the readout:
 4. Add up to three trend charts for the most decision-relevant key metrics when each has at least four comparable completed periods (prefer six to twelve). A chart supplements the metrics table; it never replaces the exact reporting/comparison values. Use only normalized source data at the readout's configured cadence and the metric's stable aggregation, preserve gaps, and provide descriptive Markdown alt text.
 5. Distill material insights from quantitative and qualitative evidence. Include affected segments and context where available; label hypotheses and never imply causality from timing alone.
 6. Include exact, representative feedback quotations where they add useful specificity. Pair quotations with prevalence or reviewed volume, date, and source; never synthesize a quote or expose unnecessary identity.
-7. Recommend only the actions or decisions warranted by the evidence. Keep the list short; include the owner or decision-maker, timing, and success signal when the evidence permits.
+7. Recommend only the actions or decisions warranted by the evidence. Keep the list short; include the owner or decision-maker, timing, and success signal when the evidence permits. Classify consequential unresolved choices as a product, market, strategy, or platform case according to the primary commitment; classify routine operations, instrumentation fixes, already-decided work, and bounded research as direct actions.
 8. Report only data gaps that materially limit the readout; write "No material gaps." when none do.
 
 ## Output
