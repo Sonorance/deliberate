@@ -46,9 +46,9 @@ test('cases list newest-first by default', () => {
   assert.deepEqual(store.listCases('p').map(s => s.title), ['second', 'first']);
 });
 
-test('case folders are date-prefixed (no number); internal ids stay globally unique; the id is the only handle', () => {
+test('case folders are date-prefixed; ids stay globally unique; the decision lens is durable', () => {
   createProjectWithId(store, 'q', 'Q');
-  const s1 = store.createCase('q', 'Cross project case', 'body text');
+  const s1 = store.createCase('q', 'Cross project case', 'body text', { lens: 'strategy' });
   assert.notEqual(store.listCases('p')[0].id, s1.id, 'internal ids do not collide across projects');
   const folder = folderOf('q', s1);   // e.g. 'cases/2026-07-03-cross-project-case'
   assert.match(folder, /^cases\/\d{4}-\d{2}-\d{2}-cross-project-case$/, 'folder is deliberate/cases/YYYY-MM-DD-slug (no number)');
@@ -58,6 +58,8 @@ test('case folders are date-prefixed (no number); internal ids stay globally uni
   assert.doesNotMatch(analysis, /^case:/m, 'no sequential-number metadata — the hash id is the only handle');
   assert.doesNotMatch(analysis, /^title:/m, 'there is no title metadata property — the title is the # H1');
   assert.match(analysis, /^# Cross project case$/m, 'the title is the record heading');
+  assert.match(analysis, /^lens: strategy$/m, 'the selected decision lens lives in frontmatter');
+  assert.equal(store.getCase(s1.id).lens, 'strategy');
   assert.equal(store.getCase(s1.id).description, 'body text', 'the raw prompt is a transient frontmatter input');
 });
 
@@ -103,12 +105,14 @@ test('sources round-trip, incl. an inline description containing an em dash', ()
   assert.equal(store.listSources('p').find(s => s.location === 'https://no-desc.example.com').description, null, 'no description defaults to null');
 });
 
-test('setCase ignores unknown fields and only persists lifecycle keys (state/gate/run_token/prompt)', () => {
+test('setCase persists validated lens/lifecycle fields and ignores unknown fields', () => {
   const s = store.createCase('p', 'waiting one', '');
-  store.setCase(s.id, { state: 'error', bogus: 1 });
+  store.setCase(s.id, { lens: 'platform', state: 'error', bogus: 1 });
   assert.equal(store.getCase(s.id).state, 'error', 'a known lifecycle field is persisted');
+  assert.equal(store.getCase(s.id).lens, 'platform', 'a valid lens can be corrected in place');
   const analysis = readFileSync(join(store.getProject('p').dir, 'deliberate', folderOf('p', s), 'analysis.md'), 'utf8');
   assert.doesNotMatch(analysis, /^bogus:/m, 'an unknown field is never written to the record');
+  assert.throws(() => store.setCase(s.id, { lens: 'operations' }), /Unknown case lens/);
 });
 
 test('app settings: background defaults ON, round-trips, and is not on any project config', () => {

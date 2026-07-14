@@ -1,13 +1,13 @@
-# roles/config.yaml — binds each pipeline STAGE to its instructions, output template,
-# and reusable skills. Keyed by stage; the files live under this `roles/` folder,
-# organized by role: analyst/ (frame, shape, launch), evaluator/ (score), prototyper/ (prototype).
+# roles/config.yaml — binds each workflow stage to shared instructions plus a case-lens
+# template/skill bundle. case lenses are product, market, strategy, and platform; the
+# host infers one from the decision and the engine persists it on the case.
 #
 # Each stage maps to:
 #   instructions      repo-relative path to the stage's instructions
-#   templates.default repo-relative path to the output template (the section's shape).
-#                     `init` is the exception: it has THREE outputs, so it uses
-#                     templates.product + templates.competitors + templates.ecosystem instead of `default`.
-#   skills            repo-relative paths to the reusable skills it applies (roles/skills/)
+#   templates         lensed case stages map lens → output template. Other stages use
+#                     templates.default; init maps product/competitors/ecosystem.
+#   skills            shared reusable skills for every lens.
+#   lens_skills       additional reusable skills selected with the case lens.
 #   model             ONLY for `score` (the isolated cross-vendor Evaluator) — the model
 #                     the host spawns it on. Host-run stages omit it (the host uses its
 #                     own session model).
@@ -35,12 +35,20 @@
 # model (claude-opus-4.8) for the host-run stages. With DELIBERATE_MODEL=stub the model
 # is ignored entirely.
 
-# Analyst — pass 1: frame the problem (personas + jobs-to-be-done) and the competitive landscape.
+# Analyst — pass 1: frame the decision without recommending an answer yet.
 frame:
   instructions: roles/analyst/frame/instructions.md
   templates:
-    default:    roles/analyst/frame/output-template.md
-  skills: [roles/skills/jtbd.md]
+    product:    roles/analyst/frame/output-template-product.md
+    market:     roles/analyst/frame/output-template-market.md
+    strategy:   roles/analyst/frame/output-template-strategy.md
+    platform:   roles/analyst/frame/output-template-platform.md
+  skills: []
+  lens_skills:
+    product:  [roles/skills/case-product.md, roles/skills/jtbd.md]
+    market:   [roles/skills/case-market.md, roles/skills/positioning.md, roles/skills/jtbd.md]
+    strategy: [roles/skills/case-strategy.md]
+    platform: [roles/skills/case-platform.md, roles/skills/tech-constraints.md]
 
 # Evaluator — the decorrelated go/no-go, spawned as an isolated sub-agent on a DIFFERENT
 # vendor than the Analyst so the score isn't anchored by the author. Scores the PROBLEM only.
@@ -50,31 +58,58 @@ score:
   reasoning_effort: high
   instructions: roles/evaluator/score/instructions.md
   templates:
-    default:    roles/evaluator/score/output-template.md
-  skills: [roles/skills/prioritization.md, roles/skills/win-conditions.md, roles/skills/critique.md]
+    product:    roles/evaluator/score/output-template.md
+    market:     roles/evaluator/score/output-template.md
+    strategy:   roles/evaluator/score/output-template.md
+    platform:   roles/evaluator/score/output-template.md
+  skills: [roles/skills/case-evaluation.md, roles/skills/critique.md]
+  lens_skills:
+    product:  [roles/skills/case-product.md, roles/skills/win-conditions.md]
+    market:   [roles/skills/case-market.md, roles/skills/positioning.md]
+    strategy: [roles/skills/case-strategy.md]
+    platform: [roles/skills/case-platform.md, roles/skills/tech-constraints.md]
 
-# Analyst — pass 2: shape the solution concept + step-level, surface-native user journeys.
+# Analyst — pass 2: shape credible alternatives, tradeoffs, and a recommended direction.
 shape:
   instructions: roles/analyst/shape/instructions.md
   templates:
-    default:    roles/analyst/shape/output-template.md
-  skills: [roles/skills/ux-principles.md, roles/skills/tech-constraints.md, roles/skills/jtbd.md, roles/skills/win-conditions.md]
+    product:    roles/analyst/shape/output-template-product.md
+    market:     roles/analyst/shape/output-template-market.md
+    strategy:   roles/analyst/shape/output-template-strategy.md
+    platform:   roles/analyst/shape/output-template-platform.md
+  skills: []
+  lens_skills:
+    product:  [roles/skills/case-product.md, roles/skills/ux-principles.md, roles/skills/tech-constraints.md, roles/skills/jtbd.md, roles/skills/win-conditions.md]
+    market:   [roles/skills/case-market.md, roles/skills/positioning.md, roles/skills/jtbd.md]
+    strategy: [roles/skills/case-strategy.md]
+    platform: [roles/skills/case-platform.md, roles/skills/tech-constraints.md]
 
-# Analyst — pass 3: launch — how the concept reaches its first users and compounds
-# (the pitch, first users, the phased launch plan, how it spreads, and telemetry-grounded metrics).
+# Analyst — pass 3: put the chosen direction into action and define validation.
 launch:
   instructions: roles/analyst/launch/instructions.md
   templates:
-    default:    roles/analyst/launch/output-template.md
-  skills: [roles/skills/jtbd.md, roles/skills/win-conditions.md, roles/skills/positioning.md, roles/skills/metrics.md]
+    product:    roles/analyst/launch/output-template-product.md
+    market:     roles/analyst/launch/output-template-market.md
+    strategy:   roles/analyst/launch/output-template-strategy.md
+    platform:   roles/analyst/launch/output-template-platform.md
+  skills: [roles/skills/metrics.md]
+  lens_skills:
+    product:  [roles/skills/case-product.md, roles/skills/jtbd.md, roles/skills/win-conditions.md, roles/skills/positioning.md]
+    market:   [roles/skills/case-market.md, roles/skills/positioning.md, roles/skills/jtbd.md]
+    strategy: [roles/skills/case-strategy.md]
+    platform: [roles/skills/case-platform.md, roles/skills/tech-constraints.md]
 
 # Prototyper — the interactive mock of the primary journey, a recomputable companion (NOT a
 # funnel stage — like the score/one-pager), built on request and authored in-session.
 prototype:
   instructions: roles/prototyper/prototype/instructions.md
   templates:
-    default:    roles/prototyper/prototype/output-template.md
-  skills: [roles/skills/ux-principles.md, roles/skills/tech-constraints.md, roles/skills/jtbd.md, roles/skills/win-conditions.md]
+    product:    roles/prototyper/prototype/output-template-product.md
+    market:     roles/prototyper/prototype/output-template-market.md
+  skills: [roles/skills/tech-constraints.md]
+  lens_skills:
+    product: [roles/skills/case-product.md, roles/skills/ux-principles.md, roles/skills/jtbd.md, roles/skills/win-conditions.md]
+    market:  [roles/skills/case-market.md, roles/skills/positioning.md, roles/skills/ux-principles.md, roles/skills/jtbd.md]
 
 # Analyst — the One-pager: a customer-facing 1-page companion to the decision record (NOT a
 # funnel stage — no score, no funnel state). Host-run in-session (no model), it distils the
@@ -82,8 +117,16 @@ prototype:
 one-pager:
   instructions: roles/analyst/one-pager/instructions.md
   templates:
-    default:    roles/analyst/one-pager/output-template.md
-  skills: [roles/skills/positioning.md, roles/skills/jtbd.md]
+    product:    roles/analyst/one-pager/output-template-product.md
+    market:     roles/analyst/one-pager/output-template-market.md
+    strategy:   roles/analyst/one-pager/output-template-strategy.md
+    platform:   roles/analyst/one-pager/output-template-platform.md
+  skills: []
+  lens_skills:
+    product:  [roles/skills/case-product.md, roles/skills/positioning.md, roles/skills/jtbd.md]
+    market:   [roles/skills/case-market.md, roles/skills/positioning.md]
+    strategy: [roles/skills/case-strategy.md]
+    platform: [roles/skills/case-platform.md, roles/skills/tech-constraints.md]
 
 # Briefer — the periodic landscape brief (project-scoped, NOT a case stage). Host-run in-session
 # (no model), it scans the competitive + market changes since the last brief (capped at 3 months)
@@ -114,7 +157,7 @@ matchup:
   skills: [roles/skills/head-to-head.md, roles/skills/jtbd.md, roles/skills/positioning.md, roles/skills/prioritization.md, roles/skills/tech-constraints.md, roles/skills/landscape-scan.md]
 
 # Initiator — sets up the project context (product.md + competitors.md + ecosystem.md) that grounds every
-# Case, brief, and analysis. Host-run in-session (no model), like the other host stages. Its three output
+# case, brief, and analysis. Host-run in-session (no model), like the other host stages. Its three output
 # templates are the context scaffolds co-located under roles/initiator/init/; `init prompt` injects
 # the instructions, and `deliberate init` writes the scaffolds the host then fills in place.
 init:

@@ -87,6 +87,8 @@ test('deliberate CLI: the funnel emits the suite-wide value moments (case → st
   const t = types(home);
   for (const need of ['case.created', 'case.stage.completed', 'case.completed', 'case.scored', 'prototype.built'])
     assert.ok(t.includes(need), `the funnel emits ${need}`);
+  for (const event of auditEvents(home).filter((e) => ['case.created', 'case.stage.completed', 'case.completed', 'case.scored', 'prototype.built'].includes(e.type)))
+    assert.equal(event.props.lens, 'product', `${event.type} carries the durable low-cardinality case lens`);
 
   // A 7.5 maps to a `go` verdict enum (never the raw number, never text).
   const scored = auditEvents(home).filter((e) => e.type === 'case.scored').at(-1);
@@ -95,16 +97,17 @@ test('deliberate CLI: the funnel emits the suite-wide value moments (case → st
   // The final funnel stage completes analysis; scoring is a separate companion and the first score
   // is the case value moment. Re-scores are explicitly marked so WVM does not inflate.
   const completed = auditEvents(home).filter((e) => e.type === 'case.completed').at(-1);
-  assert.deepEqual(completed.props, {}, 'case.completed does not pretend the separate score already happened');
+  assert.deepEqual(completed.props, { lens: 'product' }, 'case.completed records only the durable lens, not a pretend Score result');
   assert.equal(scored.props.refreshed, false, 'the first score is marked as a fresh value moment');
   writeFileSync(art, '# Score\n\n**Score:** 7.5\n- reason one\n- reason two');
   runTel(repo, home, ['case', 'score', 'save', '--model', 'claude-opus-4.8', '--file', art]);
   const rescored = auditEvents(home).filter((e) => e.type === 'case.scored').at(-1);
   assert.equal(rescored.props.refreshed, true, 'a repeated score is marked as a refresh, not another value moment');
   assert.equal(rescored.props.independent, false, 'a same-session fallback is visible as a non-independent guardrail');
-  // The prototype records only a coarse surface slug.
+  // The prototype records only the coarse surface and lens enums.
   const built = auditEvents(home).filter((e) => e.type === 'prototype.built').at(-1);
   assert.equal(built.props.surface, 'default', 'the default-surface prototype records surface=default');
+  assert.equal(built.props.lens, 'product', 'the eligible prototype records its low-cardinality case lens');
 
   // install.created fires EXACTLY once across many commands on one install.
   assert.equal(t.filter((x) => x === 'install.created').length, 1, 'install.created fires exactly once on the first run');

@@ -45,7 +45,19 @@ test('SKILL.md has strictly-valid, user-invocable Copilot frontmatter for `delib
   assert.ok(data['argument-hint'], 'has an argument hint');
   assert.match(body, /`init`/, 'documents the init command');
   assert.match(body, /`case <idea>`/, 'documents the case command');
-  assert.match(body, /asked for, never automatic/i, 'preserves the prototype-ask rule (built on request, not automatic)');
+  assert.match(body, /never auto-built|never automatic/i, 'preserves the prototype-ask rule (built on request, not automatic)');
+});
+
+test('public package copy leads with analyzing any idea or signal and avoids typed-case jargon', () => {
+  const copy = [
+    readFileSync(join(repoRoot, 'README.md'), 'utf8'),
+    readFileSync(join(repoRoot, 'skill/SKILL.md'), 'utf8'),
+  ].join('\n');
+  assert.match(copy, /analy[sz]e any consequential idea or signal/i);
+  for (const example of ['feature', 'marketing', 'strategy', 'platform and ecosystem'])
+    assert.match(copy, new RegExp(example, 'i'), `public copy should include ${example}`);
+  assert.doesNotMatch(copy, /\btyped(?: decision)? case(?:s)?\b/i);
+  assert.doesNotMatch(copy, /\b(?:Product|Market|Strategy|Platform) case(?:s)?\b/);
 });
 
 test('the Initiator deduces real competitors (never empty); SKILL.md orchestrates + confirms them', () => {
@@ -82,6 +94,10 @@ test('`deliberate init` sets up the CURRENT folder: context under deliberate/con
   // The repo is now the current project and a case lands under deliberate/cases/<YYYY-MM-DD-slug>/.
   runIn(repo, {}, 'case', 'Bulk archive stale mail');
   const artFile = join(repo, 'score-input.md');
+  for (const stage of ['frame', 'shape', 'launch']) {
+    writeFileSync(artFile, `# ${stage}\n\nGrounded ${stage}.`);
+    runIn(repo, {}, 'case', 'analysis', 'save', '--file', artFile);
+  }
   writeFileSync(artFile, '# Score\n\n**Score:** 7\n\nadvance.');
   runIn(repo, {}, 'case', 'score', 'save', '--model', 'gpt-5.4', '--independent', '--file', artFile);
   const casesRoot = join(repo, 'deliberate', 'cases');
@@ -179,20 +195,32 @@ test('SKILL.md `readout` grounds all analysis in one completed, overridable repo
 test('SKILL.md requires workflow-specific, default-positive follow-up CTAs', () => {
   const body = readFileSync(join(repoRoot, 'skill/SKILL.md'), 'utf8');
   const routing = body.slice(body.indexOf('Every substantive workflow'), body.indexOf('## `init`'));
-  for (const next of ['`init` → run the first brief', '`brief` → run the recommended Cases', '`case` → build the prototype', '`prototype` → open it for review', '`readout` → run the recommended Cases', '`matchup` → run a fresh brief', '`source add|remove` → refresh affected project context', '`address` → review the resolved changes in Diff mode'])
+  for (const next of ['`init` → run the first brief', '`brief` → run the recommended cases', 'product/market `case` → build the appropriate prototype', 'strategy/platform `case` → review the completed decision record in Sonorance', '`prototype` → open it for review', '`readout` → run the recommended cases', '`matchup` → run a fresh brief', '`source add|remove` → refresh affected project context', '`address` → review the resolved changes in Diff mode'])
     assert.match(routing, new RegExp(next.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `documents the ${next} handoff`);
   assert.match(routing, /default yes/g, 'substantive CTAs are default-positive');
 
   const init = body.slice(body.indexOf('## `init`'), body.indexOf('## `case <idea>`'));
   assert.match(init, /Run the first landscape brief now\?/i, 'init asks to run a Brief');
   assert.match(init, /\*\*Run brief\*\* \(default\)/, 'running the Brief is the default');
-  assert.doesNotMatch(init, /Run (?:the first |a )?Case now\?/i, 'init does not bypass the hero Brief by recommending a Case');
+  assert.doesNotMatch(init, /Run (?:the first |a )?case now\?/i, 'init does not bypass the hero Brief by recommending a case');
 
   const brief = body.slice(body.indexOf('## `brief`'), body.indexOf('## `readout [period]`'));
-  assert.match(brief, /triggering signal and evidence/i, 'recommended Cases preserve their motivating evidence');
-  assert.match(brief, /why analy(?:sis|zing it) is valuable now/i, 'recommended Cases explain the value of analysis');
-  assert.match(brief, /decision.*unlock/i, 'recommended Cases name the decision they unlock');
-  assert.match(brief, /Run recommended Cases.*default/is, 'running recommended Cases is the default Brief CTA');
+  assert.match(brief, /triggering (?:signal and )?evidence/i, 'recommended cases preserve their motivating evidence');
+  assert.match(brief, /why analy(?:sis|zing it) is valuable now/i, 'recommended cases explain the value of analysis');
+  assert.match(brief, /decision.*unlock/i, 'recommended cases name the decision they unlock');
+  assert.match(brief, /Run recommended cases.*default/is, 'running recommended cases is the default Brief CTA');
+});
+
+test('SKILL.md preserves the prototype quality contract without delegating it to generic brevity', () => {
+  const body = readFileSync(join(repoRoot, 'skill/SKILL.md'), 'utf8');
+  const prototype = body.slice(body.indexOf('## `prototype [id]`'), body.indexOf('## `brief`'));
+  assert.match(prototype, /every shaped journey step in order/);
+  assert.match(prototype, /real product conventions/);
+  assert.match(prototype, /reachable failure or recovery path/);
+  assert.match(prototype, /audience, claim, proof, action, observable response/);
+  assert.match(prototype, /meaningful objection or alternate path/);
+  assert.match(prototype, /works from `file:\/\/`/);
+  assert.match(prototype, /performs no real network calls/);
 });
 
 test('the Initiator role grounds the brief: Ecosystem + Market + per-competitor, change-oriented sources', () => {

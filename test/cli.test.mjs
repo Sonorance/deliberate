@@ -130,12 +130,45 @@ test('`case "<idea>"` makes the new case the latest (what analysis prompt/save a
   const p = await createProject(store, 'CliActive');
   setCurrentProject(store, p.id);
   runIn(p.dir, 'case', 'First idea');
-  runIn(p.dir, 'case', 'Second idea');
+  const created = runIn(p.dir, 'case', 'Second idea', '--lens', 'market');
   // Creating a case makes it the active/latest one that analysis prompt/save default to (no `use` verb).
   assert.equal(store.getActiveCase(p.id), store.listCases(p.id)[0].id, 'creating a case makes it active');
   const listing = runIn(p.dir, 'case', 'list').replace(/\x1B\[[0-9;]*m/g, '');   // strip ANSI colour codes
   assert.match(listing, /—\s+Second idea/, 'case list lists every case');
   assert.match(listing, /—\s+First idea/, 'case list lists every case');
+  assert.match(created, /market & commercial/, 'the host-selected lens is confirmed at creation');
+  assert.equal(store.listCases(p.id)[0].lens, 'market', 'the selected lens is durable');
+  assert.match(listing, /Second idea\s+· market & commercial/, 'case list makes the lens visible');
+  assert.match(listing, /First idea\s+· product & experience/, 'unqualified cases default compatibly to Product');
+});
+
+test('case creation rejects unknown lenses and strategy cases do not offer prototypes', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'dlb-lenses-'));
+  try {
+    runIn(repo, 'init');
+    const invalid = resultIn(repo, ['case', 'Unknown lens', '--lens', 'operations']);
+    assert.equal(invalid.status, 1);
+    assert.match(invalid.stderr, /Unknown case lens/);
+    runIn(repo, 'case', 'Choose the next market', '--lens', 'strategy');
+    const prompt = runIn(repo, 'case', 'analysis', 'prompt');
+    assert.match(prompt, /\[stage: frame; lens: strategy\]/, 'analysis reports the persisted lens');
+    assert.match(prompt, /## Decision lens[\s\S]*strategy & portfolio/, 'the lens grounds the prompt');
+    const prototype = resultIn(repo, ['case', 'prototype', 'prompt']);
+    assert.equal(prototype.status, 1);
+    assert.match(prototype.stderr, /prototype is not available for strategy & portfolio cases/);
+    runIn(repo, 'case', 'Simplify the Product workflow', '--lens', 'product');
+    for (const command of [
+      ['case', 'score', 'prompt'],
+      ['case', 'one-pager', 'prompt'],
+      ['case', 'prototype', 'prompt'],
+    ]) {
+      const incomplete = resultIn(repo, command);
+      assert.equal(incomplete.status, 1, `${command.join(' ')} rejects an incomplete case`);
+      assert.match(incomplete.stderr, /requires a completed case/);
+    }
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
 });
 
 test('case commands reject ambiguous id prefixes instead of mutating the first match', () => {
@@ -148,11 +181,11 @@ test('case commands reject ambiguous id prefixes instead of mutating the first m
     for (const [i, file] of records.entries()) {
       writeFileSync(file, readFileSync(file, 'utf8').replace(/^id:\s*.*$/m, `id: abc${i + 1}deadbeef`));
     }
-    const result = resultIn(repo, ['case', 'score', 'prompt', 'abc']);
+    const result = resultIn(repo, ['case', 'analysis', 'prompt', 'abc']);
     assert.equal(result.status, 1, 'ambiguous references are command failures');
     assert.match(result.stderr, /ambiguous case reference "abc"/);
     assert.doesNotMatch(result.stdout, /===== TASK =====/, 'no prompt is produced for an arbitrary first match');
-    const unique = resultIn(repo, ['case', 'score', 'prompt', 'abc1']);
+    const unique = resultIn(repo, ['case', 'analysis', 'prompt', 'abc1']);
     assert.equal(unique.status, 0, 'a unique prefix remains a valid shorthand');
     assert.match(unique.stdout, /===== TASK =====/);
     const missing = resultIn(repo, ['case', 'score', 'prompt', 'not-a-case']);
@@ -193,7 +226,7 @@ test('in-harness pipeline: case → analysis prompt/save (active case) completes
   assert.match(framePrompt, /^MODEL: /m, 'analysis prompt prints the stage MODEL line');
   assert.match(framePrompt, /===== SYSTEM =====/, 'prompt has a SYSTEM block');
   assert.match(framePrompt, /===== TASK =====/, 'prompt has a TASK block (context + template)');
-  assert.match(framePrompt, /\[stage: frame\]/, 'a fresh case starts at frame');
+  assert.match(framePrompt, /\[stage: frame; lens: product\]/, 'a fresh case starts at frame with the compatible Product default');
 
   // The host produces each analysis stage; stand in with a stub artifact and `save` it (active case).
   const artFile = join(tmpdir(), `dlb-art-${id}.md`);

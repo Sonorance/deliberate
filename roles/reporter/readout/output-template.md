@@ -30,7 +30,7 @@ _State prevalence or reviewed volume, affected segment and direction when suppor
 
 ## Actions
 
-- **_Action or decision_** — _why now; owner or decision-maker, timing, and success signal when grounded._
+- **_[product case | market case | strategy case | platform case | Direct action]_ · _Action or decision_** — _why now; owner or decision-maker, timing, and success signal when grounded._
 
 ## Data gaps
 

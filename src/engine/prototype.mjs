@@ -1,15 +1,14 @@
 /**
- * prototype.mjs — the Prototype: a self-contained, openable mock of a case's primary
- * journey, a recomputable companion to the decision record (analysis.md), NOT a funnel
- * stage.
+ * prototype.mjs — the Prototype: a self-contained, openable product journey or market
+ * test artifact, a recomputable companion to the decision record (analysis.md), NOT a
+ * funnel stage.
  *
  * The Prototyper is the HOST (in-session): it reads the finished case record (frame +
- * shape + launch) and builds a self-contained artifact native to a PRIMARY surface. The
- * artifact is always an openable single-file `index.html`, but its MEDIUM follows the
- * surface — a clickable GUI page, a CLI terminal replay, an API request/response explorer,
- * an agent-session replay, and so on (see roles/prototyper/prototype/instructions.md). A
- * case can hold one prototype per primary surface: the single-surface default is the flat
- * `prototype/index.html`; each additional surface nests as `prototype/<slug>/index.html`.
+ * shape + launch) and builds a self-contained artifact for an eligible product or market
+ * case. The artifact is always an openable single-file `index.html`: Product follows a
+ * primary surface, while Market follows a customer touchpoint. The default is the flat
+ * `prototype/index.html`; each additional grounded surface/touchpoint nests as
+ * `prototype/<slug>/index.html`.
  *
  * The prototype is deliberately decoupled from the funnel — its own artifact — so it's
  * built only on request (never auto-run) and can be rebuilt after the analysis is revised,
@@ -24,7 +23,8 @@
 import { PROTOTYPE_STAGE } from 'sonorance/plugins/deliberate/stages.mjs';
 import { agentConfig } from './roles.mjs';
 import { read, loadBody, loadSkills } from './prompts.mjs';
-import { projectContext, caseContext, cleanArtifact } from './pipeline.mjs';
+import { projectContext, caseContext, cleanArtifact, requireCompletedCase } from './pipeline.mjs';
+import { caseLens, caseLensLabel, supportsPrototype } from './lenses.mjs';
 
 // The config key (roles/config.yaml) + role folder for the Prototyper sub-job. It IS the
 // PROTOTYPE_STAGE, but never enters the funnel state machine (STAGES) — the prototype is a
@@ -53,7 +53,10 @@ export const fallbackProtoHtml = (kase) => `<!DOCTYPE html><html><head><meta cha
 // the self-contained HTML artifact native to that surface.
 export async function prototypePrompt(store, project, kase, surface = '') {
   const slug = surfaceSlug(surface);
-  const cfg = agentConfig(PROTO_STAGE);
+  const lens = caseLens(kase);
+  if (!supportsPrototype(lens)) throw new Error(`Prototype is not available for ${caseLensLabel(lens)} cases`);
+  requireCompletedCase(store, kase, 'Prototype');
+  const cfg = agentConfig(PROTO_STAGE, undefined, lens);
   const instruction = await loadBody(cfg.instructions);
   const agents = await read('AGENTS.md');
   const template = await read(cfg.templates.default);
@@ -64,11 +67,16 @@ export async function prototypePrompt(store, project, kase, surface = '') {
   const tpl = template
     ? `\n\n----- OUTPUT TEMPLATE -----\n(Fill EVERY section with real, grounded content drawn ONLY from the record below. The italic _..._ lines and parentheticals are guidance for you — replace them; never echo the template's guidance text.)\n${template}`
     : '';
-  const surfaceLine = slug
-    ? `Target surface: **${slug}** — build the prototype in the medium native to THIS primary surface (see the Prototyper instructions), not a graphical app unless this surface IS a GUI.\n`
-    : `Target the product's single primary surface — build the prototype in the medium native to it (see the Prototyper instructions).\n`;
-  const user = `${surfaceLine}Finished case record (mock ONLY its primary journey — invent no new capabilities or demand):\n${ctx}\nProduce the prototype as a single self-contained HTML document.${tpl}`;
-  return { system, user, template, model: cfg.model, surface: slug };
+  const targetLine = lens === 'market'
+    ? (slug
+      ? `Target customer touchpoint: **${slug}** — build the market test artifact for this touchpoint.\n`
+      : 'Target the customer touchpoint selected in the case recommendation.\n')
+    : (slug
+      ? `Target surface: **${slug}** — build the prototype in the medium native to THIS primary surface, not a graphical app unless this surface IS a GUI.\n`
+      : `Target the product's single primary surface and build in its native medium.\n`);
+  const scope = lens === 'market' ? 'test ONLY its market hypothesis' : 'mock ONLY its primary journey';
+  const user = `${targetLine}Finished ${caseLensLabel(lens)} case record (${scope} — invent no new capabilities or demand):\n${ctx}\nProduce the prototype as a single self-contained HTML document.${tpl}`;
+  return { system, user, template, model: cfg.model, surface: slug, lens };
 }
 
 // Persist a produced Prototype (LLM-free): clean the artifact, pull out the deliverable
@@ -77,7 +85,10 @@ export async function prototypePrompt(store, project, kase, surface = '') {
 // reflowed. Shared by the engine and `deliberate case prototype save`.
 export async function persistPrototype(store, project, kase, rawArtifact, surface = '') {
   const slug = surfaceSlug(surface);
-  const cfg = agentConfig(PROTO_STAGE);
+  const lens = caseLens(kase);
+  if (!supportsPrototype(lens)) throw new Error(`Prototype is not available for ${caseLensLabel(lens)} cases`);
+  requireCompletedCase(store, kase, 'Prototype');
+  const cfg = agentConfig(PROTO_STAGE, undefined, lens);
   const template = await read(cfg.templates.default);
   const art = cleanArtifact(rawArtifact, template);
   const html = extractHtml(art) || fallbackProtoHtml(kase);

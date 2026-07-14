@@ -1,6 +1,6 @@
 {
   "name": "deliberate-cli",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "Deliberate — a files-first product toolkit for coding agents that creates grounded, reviewable Markdown cases, briefs, readouts, matchups, and prototypes.",
   "author": {
