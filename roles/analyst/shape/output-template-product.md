@@ -1,11 +1,22 @@
 # Shape
 
+## Alternatives
+
+| Option | User outcome | Fit with current product and constraints | Evidence | Main tradeoff |
+|---|---|---|---|---|
+| **Status quo** | _…_ | _…_ | _…_ | _…_ |
+| _Option 1_ | _…_ | _…_ | _…_ | _…_ |
+| _Option 2_ | _…_ | _…_ | _…_ | _…_ |
+
 ## Concept
 
+* **Choice:** _The one recommended Product direction._
+* **Why this option:** _Why it best follows from the Frame and beats the credible alternatives._
 * **Summary:** _1–2 sentences._
 * **Simplicity:** _short sentence about why this is the simplest, lowest-input way to deliver the value —
   built on the product's current capabilities — and what was deliberately deferred to avoid user-facing
   complexity._
+* **Decisive assumptions:** _Only the assumptions or risks that could change the recommendation, plus what evidence would resolve them._
 
 ## User journeys
 

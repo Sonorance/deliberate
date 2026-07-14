@@ -10,9 +10,9 @@ _The top **three at most** (fewer is better) findings across competition **and**
 
 ## Action items
 
-_The **so-what for this project**, reasoned from the highlights: the decision or investigation warranted, the motivating finding, why acting now is valuable, and what decision it unlocks. A feature/research spike, partnership, technology/standard, or positioning/pricing response may be appropriate. Frame unresolved opportunities as problems/decisions that can become Cases rather than predetermined solutions; include only genuinely warranted actions (an empty list is fine)._
+_The **so-what for this project**, reasoned from the highlights: the decision or investigation warranted, the motivating finding, why acting now is valuable, and what decision it unlocks. Label the follow-through as **product case**, **market case**, **strategy case**, **platform case**, or **Direct action**. Only consequential unresolved choices become cases; routine execution, instrumentation, already-decided work, and bounded research stay direct. Include only genuinely warranted actions (an empty list is fine)._
 
-* _Action/decision — motivating finding — why now — decision unlocked._
+* **_[Follow-through]_ · _Action/decision_** — _motivating finding — why now — decision unlocked._
 
 ## Competition
 
