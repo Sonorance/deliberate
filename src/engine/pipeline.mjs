@@ -81,7 +81,7 @@ export function caseContext(store, kase) {
 }
 
 // Per-project context block: all three host-written context files +
-// attached external sources + optional read-only repo, prepended to every stage's system
+// attached project-external sources, prepended to every stage's system
 // prompt so Copilot is grounded in THIS project, not just the repo-level skills.
 export function projectContext(store, project) {
   const ctx = (store.readContext(project.id) || '').trim();
@@ -96,8 +96,7 @@ export function projectContext(store, project) {
   const body = ctx || `_Project context not written yet (run \`/deliberate init\`). Product: ${project.name}._`;
   const competitorBody = competitors || '_Competitor context not written yet._';
   const ecosystemBody = ecosystem || '_Ecosystem context not written yet._';
-  return `## Product context (product.md, read-only)\n\n${body}\n\n## Competitor context (competitors.md, read-only)\n\n${competitorBody}\n\n## Ecosystem context (ecosystem.md, read-only)\n\n${ecosystemBody}\n\n### Attached external sources:${srcs}` +
-    (project.repo ? `\n### Connected repo (read-only): ${project.repo}` : '');
+  return `## Product context (product.md, read-only)\n\n${body}\n\n## Competitor context (competitors.md, read-only)\n\n${competitorBody}\n\n## Ecosystem context (ecosystem.md, read-only)\n\n${ecosystemBody}\n\n### Attached project-external sources:${srcs}`;
 }
 
 // ---- Reusable stage building blocks (the host/skill drives these; the engine only

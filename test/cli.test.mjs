@@ -22,6 +22,11 @@ const cli = join(repoRoot, 'src/cli/deliberate.mjs');
 const runIn = (cwd, ...args) => execFileSync(process.execPath, [cli, ...args], { cwd, env: process.env, encoding: 'utf8' });
 const resultIn = (cwd, args, env = process.env) => spawnSync(process.execPath, [cli, ...args], { cwd, env, encoding: 'utf8' });
 const stripAnsi = (text) => text.replace(/\x1B\[[0-9;]*m/g, '');
+const caseIdFrom = (output) => {
+  const match = stripAnsi(output).match(/^case ([a-f0-9]+) ·/m);
+  assert.ok(match, 'case creation prints the id needed by later commands');
+  return match[1];
+};
 
 test('CLI runs when invoked through an installed-bin symlink', () => {
   const dir = mkdtempSync(join(tmpdir(), 'dlb-bin-'));
@@ -153,21 +158,46 @@ test('`deliberate init` scaffolds the host-edited context + competitors + ecosys
   assert.ok(openVault().readEcosystem(p.id).includes('Ecosystem'), 'an ecosystem.md scaffold exists for the host to fill');
 });
 
-test('`case "<idea>"` makes the new case the latest (what analysis prompt/save act on); `case list` lists it', async () => {
+test('`case "<idea>"` returns its id and `case list` lists all cases without singleton active state', async () => {
   const store = openVault();
   const p = await createProject(store, 'CliActive');
   setCurrentProject(store, p.id);
-  runIn(p.dir, 'case', 'First idea');
+  const firstId = caseIdFrom(runIn(p.dir, 'case', 'First idea'));
   const created = runIn(p.dir, 'case', 'Second idea', '--lens', 'market');
-  // Creating a case makes it the active/latest one that analysis prompt/save default to (no `use` verb).
-  assert.equal(store.getActiveCase(p.id), store.listCases(p.id)[0].id, 'creating a case makes it active');
+  const secondId = caseIdFrom(created);
+  assert.notEqual(firstId, secondId, 'each created case has its own explicit handle');
   const listing = runIn(p.dir, 'case', 'list').replace(/\x1B\[[0-9;]*m/g, '');   // strip ANSI colour codes
   assert.match(listing, /—\s+Second idea/, 'case list lists every case');
   assert.match(listing, /—\s+First idea/, 'case list lists every case');
+  assert.doesNotMatch(listing, /\*/, 'case list does not designate one case as active');
   assert.match(created, /market & commercial/, 'the host-selected lens is confirmed at creation');
   assert.equal(store.listCases(p.id)[0].lens, 'market', 'the selected lens is durable');
   assert.match(listing, /Second idea\s+· market & commercial/, 'case list makes the lens visible');
   assert.match(listing, /First idea\s+· product & experience/, 'unqualified cases default compatibly to Product');
+});
+
+test('legacy active_case state and unused repo metadata are deleted when a vault opens', async () => {
+  const store = openVault();
+  const p = await createProject(store, 'LocalCaseFocus');
+  const kase = store.createCase(p.id, 'Local focus', 'Keep transient focus out of project config');
+  const configPath = join(p.dir, '.sonorance', 'config.json');
+  const statePath = join(p.dir, '.sonorance', 'local', 'state.json');
+  const config = JSON.parse(readFileSync(configPath, 'utf8'));
+  config.active_case = kase.id;
+  config.repo = 'https://example.com/legacy-repo';
+  writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+  mkdirSync(dirname(statePath), { recursive: true });
+  writeFileSync(statePath, JSON.stringify({ active_case: kase.id, tabs: [{ kind: 'case', id: kase.id }] }, null, 2) + '\n');
+  const reopened = openVault();
+  const project = reopened.getProject(p.id);
+  assert.ok(project && !Object.hasOwn(project, 'repo'), 'the unused repo field is no longer part of project identity');
+  const cleanedConfig = JSON.parse(readFileSync(configPath, 'utf8'));
+  const cleanedState = JSON.parse(readFileSync(statePath, 'utf8'));
+  assert.ok(!Object.hasOwn(cleanedConfig, 'active_case'), 'legacy active_case is deleted from committed config');
+  assert.ok(!Object.hasOwn(cleanedConfig, 'repo'), 'legacy repo metadata is deleted from committed config');
+  assert.ok(!Object.hasOwn(cleanedState, 'active_case'), 'legacy active_case is deleted from local state');
+  assert.deepEqual(cleanedState.tabs, [{ kind: 'case', id: kase.id }], 'unrelated editor state is preserved');
+  reopened.close();
 });
 
 test('case creation rejects unknown lenses and strategy cases do not offer prototypes', () => {
@@ -177,18 +207,18 @@ test('case creation rejects unknown lenses and strategy cases do not offer proto
     const invalid = resultIn(repo, ['case', 'Unknown lens', '--lens', 'operations']);
     assert.equal(invalid.status, 1);
     assert.match(invalid.stderr, /Unknown case lens/);
-    runIn(repo, 'case', 'Choose the next market', '--lens', 'strategy');
-    const prompt = runIn(repo, 'case', 'analysis', 'prompt');
+    const strategyId = caseIdFrom(runIn(repo, 'case', 'Choose the next market', '--lens', 'strategy'));
+    const prompt = runIn(repo, 'case', 'analysis', 'prompt', strategyId);
     assert.match(prompt, /\[stage: frame; lens: strategy\]/, 'analysis reports the persisted lens');
     assert.match(prompt, /## Decision lens[\s\S]*strategy & portfolio/, 'the lens grounds the prompt');
-    const prototype = resultIn(repo, ['case', 'prototype', 'prompt']);
+    const prototype = resultIn(repo, ['case', 'prototype', 'prompt', strategyId]);
     assert.equal(prototype.status, 1);
     assert.match(prototype.stderr, /prototype is not available for strategy & portfolio cases/);
-    runIn(repo, 'case', 'Simplify the Product workflow', '--lens', 'product');
+    const productId = caseIdFrom(runIn(repo, 'case', 'Simplify the Product workflow', '--lens', 'product'));
     for (const command of [
-      ['case', 'score', 'prompt'],
-      ['case', 'one-pager', 'prompt'],
-      ['case', 'prototype', 'prompt'],
+      ['case', 'score', 'prompt', productId],
+      ['case', 'one-pager', 'prompt', productId],
+      ['case', 'prototype', 'prompt', productId],
     ]) {
       const incomplete = resultIn(repo, command);
       assert.equal(incomplete.status, 1, `${command.join(' ')} rejects an incomplete case`);
@@ -219,6 +249,9 @@ test('case commands reject ambiguous id prefixes instead of mutating the first m
     const missing = resultIn(repo, ['case', 'score', 'prompt', 'not-a-case']);
     assert.equal(missing.status, 1, 'missing explicit references are command failures');
     assert.match(missing.stderr, /case not found: not-a-case/);
+    const omitted = resultIn(repo, ['case', 'analysis', 'prompt']);
+    assert.equal(omitted.status, 1, 'omitted references are command failures');
+    assert.match(omitted.stderr, /case reference required/);
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }
@@ -229,49 +262,46 @@ test('score save requires explicit evaluator provenance before writing', () => {
   const artifact = join(repo, 'score.md');
   try {
     runIn(repo, 'init');
-    runIn(repo, 'case', 'A case to score');
+    const id = caseIdFrom(runIn(repo, 'case', 'A case to score'));
     writeFileSync(artifact, '# Score\n\n**Score:** 7');
-    const missing = resultIn(repo, ['case', 'score', 'save', '--file', artifact]);
+    const missing = resultIn(repo, ['case', 'score', 'save', id, '--file', artifact]);
     assert.equal(missing.status, 1, 'missing evaluator model is a command failure');
     assert.match(missing.stderr, /requires --model <actual-model-id>/);
-    const p = openVault().listProjects().find((project) => project.exists && realpathSync(project.dir) === realpathSync(repo));
-    const id = openVault().getActiveCase(p.id);
     assert.equal(openVault().readScore(id), null, 'no provenance-free score artifact is written');
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }
 });
 
-test('in-harness pipeline: case → analysis prompt/save (active case) completes the Analyst funnel; score is separate', async () => {
+test('in-harness pipeline: explicit case id → analysis prompt/save completes the Analyst funnel; score is separate', async () => {
   const store = openVault();
   const p = await createProject(store, 'InHarness');
   setCurrentProject(store, p.id);
-  runIn(p.dir, 'case', 'Bulk archive stale mail');   // creates + makes active
-  const id = store.getActiveCase(p.id);
+  const id = caseIdFrom(runIn(p.dir, 'case', 'Bulk archive stale mail'));
 
-  // `case analysis prompt` acts on the active case: grounding + instructions + context + template.
-  const framePrompt = runIn(p.dir, 'case', 'analysis', 'prompt');
+  // The explicit id keeps concurrent cases independent: grounding + instructions + context + template.
+  const framePrompt = runIn(p.dir, 'case', 'analysis', 'prompt', id);
   assert.match(framePrompt, /^MODEL: /m, 'analysis prompt prints the stage MODEL line');
   assert.match(framePrompt, /===== SYSTEM =====/, 'prompt has a SYSTEM block');
   assert.match(framePrompt, /===== TASK =====/, 'prompt has a TASK block (context + template)');
   assert.match(framePrompt, /\[stage: frame; lens: product\]/, 'a fresh case starts at frame with the compatible Product default');
 
-  // The host produces each analysis stage; stand in with a stub artifact and `save` it (active case).
+  // The host produces each analysis stage; stand in with a stub artifact and save it to this case.
   const artFile = join(tmpdir(), `dlb-art-${id}.md`);
   let last;
   for (const st of ['frame', 'shape', 'launch']) {
     writeFileSync(artFile, `# ${st}\n\nGrounded artifact.`);
-    last = runIn(p.dir, 'case', 'analysis', 'save', '--file', artFile);
+    last = runIn(p.dir, 'case', 'analysis', 'save', id, '--file', artFile);
     assert.match(last, new RegExp(`saved ${st}`), `${st} persisted`);
   }
   assert.match(last, /analysis complete/, 'saving the last funnel stage (launch) completes the analysis');
   assert.equal(store.getCase(id).state, 'done', 'state is done after launch (no prototype state, no gate)');
 
   // The decorrelated Evaluator's score is a SEPARATE, recomputable artifact (score.md), not a stage.
-  const scorePrompt = runIn(p.dir, 'case', 'score', 'prompt');
+  const scorePrompt = runIn(p.dir, 'case', 'score', 'prompt', id);
   assert.match(scorePrompt, /Evaluator/, 'the score prompt isolates a cross-vendor Evaluator');
   writeFileSync(artFile, '# Score\n\n**Score:** 7.5\n- reason one\n- reason two');
-  const scoreSaved = runIn(p.dir, 'case', 'score', 'save', '--model', 'gpt-5.4', '--independent', '--file', artFile);
+  const scoreSaved = runIn(p.dir, 'case', 'score', 'save', id, '--model', 'gpt-5.4', '--independent', '--file', artFile);
   assert.match(scoreSaved, /saved score/, 'score save confirms');
   assert.equal(store.getCase(id).score, 7.5, 'the decorrelated Evaluator score is stamped on the case');
   assert.match(store.readScore(id), /Evaluation provenance:[\s\S]*Independent evaluator[\s\S]*gpt-5\.4/, 'score.md visibly records the independent evaluator');
@@ -298,22 +328,21 @@ test('CLI `case one-pager prompt|save` writes the one-pager (internal reverse PR
   const store = openVault();
   const p = await createProject(store, 'CliOnePager');
   setCurrentProject(store, p.id);
-  runIn(p.dir, 'case', 'Let users export their data to CSV');
-  const id = store.getActiveCase(p.id);
+  const id = caseIdFrom(runIn(p.dir, 'case', 'Let users export their data to CSV'));
   // Complete the analysis so the one-pager has a finished record to distil.
   const artFile = join(tmpdir(), `dlb-op-art-${id}.md`);
   for (const st of ['frame', 'shape', 'launch']) {
     writeFileSync(artFile, `# ${st}\n\nGrounded ${st}.`);
-    runIn(p.dir, 'case', 'analysis', 'save', '--file', artFile);
+    runIn(p.dir, 'case', 'analysis', 'save', id, '--file', artFile);
   }
   // `case one-pager prompt` prints the producer prompt grounded in the record.
-  const prompt = runIn(p.dir, 'case', 'one-pager', 'prompt');
+  const prompt = runIn(p.dir, 'case', 'one-pager', 'prompt', id);
   assert.match(prompt, /^MODEL: /m, 'one-pager prompt prints a MODEL line');
   assert.match(prompt, /## The customer's story/, 'one-pager prompt carries the one-pager template');
   assert.match(prompt, /## launch/, 'one-pager prompt grounds on the finished record');
   // `case one-pager save` writes one-pager.md and links it from analysis.md.
   writeFileSync(artFile, '# Export in one click\n\nFor busy teams.\n\n## The customer\'s story\n\nI used to dread month-end.\n\n## FAQ\n\n**Who is this for?**\nTeams.');
-  const saved = runIn(p.dir, 'case', 'one-pager', 'save', '--file', artFile);
+  const saved = runIn(p.dir, 'case', 'one-pager', 'save', id, '--file', artFile);
   assert.match(saved, /saved one-pager/, 'one-pager save confirms');
   assert.ok(store.readOnepager(id) && /Export in one click/.test(store.readOnepager(id)), 'the one-pager is readable from the case folder');
   assert.match(readFileSync(store.recordFile(id), 'utf8'), /## One-pager[\s\S]*one-pager\.md/, 'analysis.md links the one-pager');
@@ -467,10 +496,12 @@ test('comment bridge transport failures are nonzero errors, never empty-success 
     const list = resultIn(repo, ['comment', 'list'], env);
     assert.equal(list.status, 1);
     assert.match(list.stderr, /could not reach the app/);
+    assert.match(list.stderr, /Diagnostics: .*sonorance\.log/, 'the failure points to persistent local diagnostics');
     assert.doesNotMatch(list.stdout, /"count":0/, 'transport failure is not represented as an empty comment batch');
     const resolve = resultIn(repo, ['comment', 'missing', 'resolve'], env);
     assert.equal(resolve.status, 1);
     assert.match(resolve.stderr, /could not reach the app/);
+    assert.match(readFileSync(join(home, 'sonorance.log'), 'utf8'), /could not reach the app/, 'the transport cause is recorded locally');
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }
@@ -557,7 +588,7 @@ test('CLI `init prompt` injects the Initiator method + the context scaffolds for
   const out = runIn(repo, 'init', 'prompt');
   assert.match(out, /you are the Initiator/, 'the host produces the context itself (Initiator)');
   assert.match(out, /files inside this project directly/i, 'project files are read as automatic context');
-  assert.match(out, /Attached external sources:/);
+  assert.match(out, /Attached project-external sources:/);
   assert.match(out, /https:\/\/example\.com\/init-source/, 'external sources remain attached');
   assert.doesNotMatch(out, /do-not-attach-local\.md/, 'legacy in-project source entries are not injected');
   assert.match(out, /\bEcosystem\b/, 'the injected method covers the Ecosystem section');

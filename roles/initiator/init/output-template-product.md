@@ -1,10 +1,10 @@
 # {{name}} — project context
 
-_Written during `/deliberate init`: the host reads this project's files + your attached external sources and fills every
+_Written during `/deliberate init`: the host reads this project's files + your attached project-external sources and fills every
 section below with real, grounded content (replace the guidance). This grounds every case, brief, and
 analysis — and future PM / exec / marketing / business-development / strategy work, not just product
 decisions. Keep it concise and use lists for enumerations. **Never fabricate.** If a section isn't covered by
-the project files or the attached external sources, don't guess or invent — write `Not covered by the provided sources — add a
+the project files or the attached project-external sources, don't guess or invent — write `Not covered by the provided sources — add a
 source or fill in manually.` for that section, and ask the user to point to a source that has it (or provide
 the details)._
 
