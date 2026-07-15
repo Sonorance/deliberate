@@ -364,14 +364,19 @@ test('init scaffolds single-source competitor and ecosystem rosters outside prod
   assert.match(prod, /standards? & protocols|standard \/ protocol/i, 'Market names standards/protocols to watch');
   const comp = readFileSync(join(p.dir, 'deliberate', 'context', 'competitors.md'), 'utf8');
   assert.match(comp, /single source of truth/i, 'competitors.md owns the roster and details');
-  assert.match(comp, /What it is.*Overlap.*Why it matters/s, 'competitors.md captures competitor details');
+  assert.match(comp, /Coverage lane.*What it is.*Overlap.*Why it matters/s, 'competitors.md captures coverage and competitor details');
   assert.doesNotMatch(comp, /Up to 10 total/, 'the old 10-total cap is gone');
+  assert.match(comp, /no numeric target or cap/i, 'the roster includes every qualified competitor');
+  assert.match(comp, /Exclude manual workflows.*spreadsheets used as workarounds.*status-quo substitutes/is, 'manual substitutes are excluded from the competitor roster');
   assert.match(comp, /changelog|release notes/i, 'prioritises change-surfacing sources');
   assert.match(comp, /landscape brief|\/deliberate brief/i, 'notes these sources ground the periodic brief');
   const eco = readFileSync(join(p.dir, 'deliberate', 'context', 'ecosystem.md'), 'utf8');
   assert.match(eco, /single source of truth/i, 'ecosystem.md owns the roster and details');
   assert.match(eco, /strategically material/i, 'ecosystem.md includes only strategically material players');
-  assert.match(eco, /What it is to us.*Why it matters.*Dependency details/s, 'ecosystem.md captures player details');
+  assert.match(eco, /Adjacent \| Complement \| Channel \| Mover/, 'ecosystem.md uses the non-dependency position grammar');
+  assert.match(eco, /What it is to us.*Why it matters.*Qualification evidence.*Pattern worth learning from/s, 'ecosystem.md captures relationship, evidence, and analogy details');
+  assert.match(eco, /Complement.*before, alongside, or after.*same end-to-end workflow.*co-use or interoperability raises the value of both/is, 'ecosystem.md defines complements by shared-workflow mutual value');
+  assert.match(eco, /other markets or niches.*strategy, packaging, go-to-market motion, goals, technology, or product dynamics/is, 'ecosystem.md prompts for adjacent analogs');
   assert.match(eco, /changelog|release notes|advisor/i, 'prioritises change-surfacing sources');
   assert.match(eco, /landscape brief|\/deliberate brief/i, 'notes these ground the periodic brief');
 });
@@ -419,14 +424,16 @@ test('init links the root README to deliberate/context idempotently for agent di
   assert.match(body, /^# Existing project/m, 'existing README content is preserved');
 });
 
-test('competitor roster is a prioritized field (5–10, more if crowded), distinct from Frame\'s per-change ≤5 table', () => {
+test('competitor roster maximizes qualified coverage without manual substitutes or a numeric cap', () => {
   const p = scaffoldContext(createProjectWithId(store, 'roster', 'Roster'));
   const prod = readFileSync(join(p.dir, 'deliberate', 'context', 'product.md'), 'utf8');
   const comp = readFileSync(join(p.dir, 'deliberate', 'context', 'competitors.md'), 'utf8');
-  assert.match(comp, /5[–-]10/, 'the canonical roster targets a prioritized 5–10, not a token few');
   assert.match(comp, /ordered by relevance|most direct first/i, 'the roster is ordered by relevance');
+  assert.match(comp, /no numeric target or cap/i, 'the roster is not truncated to an arbitrary count');
+  assert.match(comp, /direct category rivals.*cross-category commercial alternatives.*suite\/platform overlap.*emerging, niche, regional, or open-source/is, 'the scaffold covers every discovery lane');
+  assert.match(comp, /Exclude manual workflows.*status-quo substitutes/is, 'manual substitutes are not roster entries');
   assert.match(prod, /See \[competitors\.md\]/, 'product context only references the roster');
-  assert.doesNotMatch(prod, /5[–-]10|3[–-]7/, 'product.md does not duplicate roster guidance');
+  assert.doesNotMatch(prod, /numeric target|manual workflows|cross-category commercial alternatives/i, 'product.md does not duplicate roster guidance');
 });
 
 test('#writeAnalysis reflows host-written hard-wrapped prose (summary lede + Key highlights)', () => {

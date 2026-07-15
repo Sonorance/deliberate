@@ -186,13 +186,12 @@ test('persistStage unwraps hard-wrapped prose in the record; persistPrototype ne
 
 test('project context is injected into agent prompts (Copilot grounding)', async () => {
   const p = await createProject(store, 'Ctx');
-  store.addSource(p.id, 'github.com/me/app'); store.setRepo(p.id, 'github.com/me/app');
+  store.addSource(p.id, 'github.com/me/app');
   store.writeContext(p.id, '# App — project context\n\n## Personas\n\n- indie SaaS founders\n\n## Objective\n\nretention\n');
   const block = projectContext(store, store.getProject(p.id));
   assert.match(block, /## Product context \(product\.md, read-only\)/, 'the block wraps the host-written context');
   assert.match(block, /indie SaaS founders/); assert.match(block, /retention/);
-  assert.match(block, /read-only.*github\.com\/me\/app/, 'the connected repo is noted');
-  assert.match(block, /Attached external sources:/);
+  assert.match(block, /Attached project-external sources:/);
 });
 
 test('projectContext passes external sources with descriptions and excludes legacy in-project entries', async () => {
@@ -205,7 +204,7 @@ test('projectContext passes external sources with descriptions and excludes lega
   store.addSource(p.id, outside, null);
   store.addSource(p.id, inside, 'Legacy local source');
   const ctx = projectContext(store, store.getProject(p.id));
-  assert.match(ctx, /### Attached external sources:/, 'an attached-sources section is present');
+  assert.match(ctx, /### Attached project-external sources:/, 'an attached-sources section is present');
   assert.match(ctx, /https:\/\/docs\.example\.com — The product docs site/, 'a described source is passed with its blurb');
   assert.match(ctx, /## Competitor context \(competitors\.md, read-only\)[\s\S]*RivalCo/);
   assert.match(ctx, /## Ecosystem context \(ecosystem\.md, read-only\)[\s\S]*PlatformCo/);
