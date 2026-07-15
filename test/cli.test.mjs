@@ -42,7 +42,8 @@ test('CLI runs when invoked through an installed-bin symlink', () => {
 test('CLI `help --skill` renders the exact live /deliberate grammar', () => {
   const expected = [
     'Deliberate skill grammar',
-    ...SKILL_COMMANDS.flatMap(([command, description]) => [`  ${command}`, `      ${description}`]),
+    '',
+    ...SKILL_COMMANDS.map(([command, description]) => `- \`${command}\` — ${description}`),
     '',
   ].join('\n');
   const uninitialized = mkdtempSync(join(tmpdir(), 'dlb-help-'));

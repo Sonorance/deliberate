@@ -284,10 +284,12 @@ export const cmds = {
   help([mode] = []) {
     const skill = mode === '--skill';
     P(skill
-      ? `${c.w}Deliberate skill grammar${c.x}`
+      ? `${c.w}Deliberate skill grammar${c.x}\n`
       : `${c.w}deliberate${c.x} ${c.d}(local, files-first — the project is the folder you're in)${c.x}`);
     for (const [cmd, desc] of skill ? SKILL_COMMANDS : CLI_COMMANDS) {
-      P(`  ${c.w}${cmd}${c.x}\n      ${c.d}${desc}${c.x}`);
+      P(skill
+        ? `- ${c.w}\`${cmd}\`${c.x} ${c.d}— ${desc}${c.x}`
+        : `  ${c.w}${cmd}${c.x}\n      ${c.d}${desc}${c.x}`);
     }
   },
 
