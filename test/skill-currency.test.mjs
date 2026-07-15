@@ -20,14 +20,14 @@ assert.ok(fmMatch, 'SKILL.md has a --- frontmatter block');
 const frontmatter = yaml.load(fmMatch[1]);
 const body = fmMatch[2];
 
-const { SKILL_COMMANDS } = await import('../src/engine/commands.mjs');
+const { SKILL_COMMANDS, SKILL_FOLLOW_UPS } = await import('../src/engine/commands.mjs');
 const { FS_LAYOUT } = await import('../src/engine/layout.mjs');
 const fsPaths = FS_LAYOUT.map((r) => (Array.isArray(r) ? r[0] : r.path ?? r));
 
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Every literal (non-placeholder) token a user types in a `/deliberate …` line — the top-level verb
-// AND its sub-verbs (score, prototype, list, add, remove). Placeholders (<idea>, [id], "…") are dropped.
+// AND its sub-verbs (score, prototype, list, add, remove). Placeholders (<idea>, <id>, "…") are dropped.
 const literalTokens = (cmd) =>
   cmd
     .replace('/deliberate', '')
@@ -52,6 +52,13 @@ test('SKILL.md documents every command in the grammar, sub-verbs included (comma
         new RegExp(`\\b${esc(tok)}\\b`),
         `SKILL.md never documents \`${tok}\` (from grammar command \`${cmd}\`) — update the skill or the grammar together`,
       );
+});
+
+test('every skill command has exactly one ordered follow-up contract', () => {
+  assert.deepEqual(
+    SKILL_FOLLOW_UPS.map(([command]) => command),
+    SKILL_COMMANDS.map(([command]) => command),
+  );
 });
 
 test('the frontmatter argument-hint lists every top-level command verb', () => {

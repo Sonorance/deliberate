@@ -20,6 +20,7 @@ import { submitFeedback } from 'sonorance/feedback.mjs';
 import { CommentClientError, fetchCommentBatch, fetchCommentProject, resolveComment } from 'sonorance/comment-client.mjs';
 import { buildLaunchUrl } from 'sonorance/launch-url';
 import { installSonoranceSkill } from 'sonorance/skill-installer';
+import { logFile } from 'sonorance/log.mjs';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, cpSync, rmSync, realpathSync } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
 import { homedir } from 'node:os';
@@ -82,11 +83,12 @@ const resolveCase = (pid, ref) => {
   if (!matches.length) throw new CliError(`case not found: ${r}`);
   throw new CliError(`ambiguous case reference "${r}" — matches ${matches.map(s => s.id).join(', ')}; use a longer prefix`);
 };
-// The case a stage command acts on: an explicit trailing ref (id; not a flag), else the active case.
+// Every case operation requires an explicit id or unique prefix. A project can have many cases in
+// progress, so there is no singleton "active case" fallback.
 const targetCase = (pid, maybeRef) => {
   const ref = (maybeRef != null && !String(maybeRef).startsWith('-')) ? maybeRef : null;
-  const id = ref != null ? resolveCase(pid, ref) : store.getActiveCase(pid);
-  return id != null ? store.getCase(id) : undefined;
+  if (ref == null) throw new CliError('case reference required — pass a full id or unique prefix (see deliberate case list)');
+  return store.getCase(resolveCase(pid, ref));
 };
 const readStdin = () => new Promise(res => { if (process.stdin.isTTY) return res(''); let d = ''; process.stdin.setEncoding('utf8'); process.stdin.on('data', ch => d += ch); process.stdin.on('end', () => res(d)); });
 const provisionalTitle = (s) => s ? s.split(/\s+/).slice(0, 6).join(' ').slice(0, 60) : 'Untitled';
@@ -135,8 +137,7 @@ export const installEngineConfig = (repoRoot, engineFile, version = pkgVersion()
     : { package: 'deliberate-cli', version };
 
 // ---- `case` sub-handlers (noun-first; the parent dispatcher routes to these) ----
-// Create a case (no run) and make it the active case; the skill then loops analysis
-// prompt → (produce in-harness) → save per stage.
+// Create a case (no run); the skill retains the returned id and passes it to every later command.
 function caseNew(p, r) {
   const idea = firstArg(r); if (!idea) return P('usage: deliberate case "<idea>"');
   const lens = requireCaseLens(opt('--lens') || 'product');
@@ -145,17 +146,15 @@ function caseNew(p, r) {
     if (typeof store.deleteCase === 'function') store.deleteCase(s.id);
     throw new CliError('Installed Sonorance does not support case lenses; upgrade the sonorance dependency');
   }
-  store.setActiveCase(p.id, s.id);
   emit('case.created', { lens });
-  P(`case ${c.w}${s.id}${c.x} · ${s.slug} · ${caseLensLabel(lens)} ${c.d}(active)${c.x}`);
+  P(`case ${c.w}${s.id}${c.x} · ${s.slug} · ${caseLensLabel(lens)}`);
   P(`stages: ${STAGES.join(' → ')}  ${c.d}(score after analysis; eligible prototype on request)${c.x}`);
-  P(`next: ${c.w}deliberate case analysis prompt${c.x}`);
+  P(`next: ${c.w}deliberate case analysis prompt ${s.id}${c.x}`);
 }
-// List cases and scores (active marked *).
+// List cases and scores.
 function caseList(p) {
-  const active = store.getActiveCase(p.id);
   const list = store.listCases(p.id, { min: opt('--min') ? +opt('--min') : null, state: opt('--state') });
-  return P(`cases · ${p.name}\n` + (list.map(s => `  ${s.id === active ? c.g + '*' + c.x : ' '} ${c.w}${s.id}${c.x} ${sc(s.score)}  ${s.title} ${c.d}· ${caseLensLabel(caseLens(s))} · ${s.state}${c.x}`).join('\n') || '  (none — deliberate case "<idea>")'));
+  return P(`cases · ${p.name}\n` + (list.map(s => `  ${c.w}${s.id}${c.x} ${sc(s.score)}  ${s.title} ${c.d}· ${caseLensLabel(caseLens(s))} · ${s.state}${c.x}`).join('\n') || '  (none — deliberate case "<idea>")'));
 }
 // The next analysis stage to run for a case, inferred from its state (the skill never
 // passes a stage token): a new case starts at frame; a mid-funnel case runs its pending
@@ -165,34 +164,32 @@ const analysisStage = (kase) => {
   if (st === STATE.NEW) return STAGES[0];
   return STAGES.includes(st) ? st : null;
 };
-// `case analysis prompt|save [id]` — walk the analysis funnel (frame → shape → launch),
+// `case analysis prompt|save <id>` — walk the analysis funnel (frame → shape → launch),
 // one stage at a time, inferring the stage from the case's state.
 async function caseAnalysis(p, action, args) {
   const kase = targetCase(p.id, args[0]);
-  if (!kase) return P('no case — create one with deliberate case "<idea>"');
   const stage = analysisStage(kase);
-  if (!stage) return P(`${c.d}analysis complete for ${kase.id} — next:${c.x} ${c.w}deliberate case score prompt${c.x}`);
+  if (!stage) return P(`${c.d}analysis complete for ${kase.id} — next:${c.x} ${c.w}deliberate case score prompt ${kase.id}${c.x}`);
   if (action === 'prompt') {
     const { system, user, lens } = await stagePrompt(store, p, kase, stage, opt('--note'));
     return P(`MODEL: (produce in THIS session — you are the Analyst; no sub-agent) ${c.d}[stage: ${stage}; lens: ${lens}]${c.x}\n===== SYSTEM =====\n${system}\n\n===== TASK =====\n${user}`);
   }
   if (action === 'save') {
     const art = opt('--file') ? readFileSync(opt('--file'), 'utf8') : await readStdin();
-    if (!art.trim()) return P('usage: deliberate case analysis save [id] --file <path>  (or pipe via stdin)');
+    if (!art.trim()) return P('usage: deliberate case analysis save <id> --file <path>  (or pipe via stdin)');
     const rr = await persistStage(store, p, kase.id, stage, art);
     const lens = caseLens(kase);
     emit('case.stage.completed', { stage, lens });
     if (!rr.next) emit('case.completed', { lens });
     return P(`saved ${stage} → ${rr.next || c.g + 'analysis complete' + c.x + c.d + ' (score the finished recommendation next)' + c.x}`);
   }
-  return P('usage: deliberate case analysis <prompt|save> [id]');
+  return P('usage: deliberate case analysis <prompt|save> <id>');
 }
-// `case score prompt|save [id]` — the decorrelated Evaluator's recomputable verdict
+// `case score prompt|save <id>` — the decorrelated Evaluator's recomputable verdict
 // (score.md). `prompt` prints the target Evaluator MODEL line; `save` records the
 // actual model and whether an isolated evaluator produced the result.
 async function caseScore(p, action, args) {
   const kase = targetCase(p.id, args[0]);
-  if (!kase) return P('no case — create one with deliberate case "<idea>"');
   if (action === 'prompt') {
     const { system, user, model } = await scorePrompt(store, p, kase);
     return P(`MODEL: ${model}  (Evaluator — spawn an ISOLATED sub-agent on this cross-vendor model)\n===== SYSTEM =====\n${system}\n\n===== TASK =====\n${user}`);
@@ -202,39 +199,37 @@ async function caseScore(p, action, args) {
     if (!model) throw new CliError('case score save requires --model <actual-model-id>; add --independent only for an isolated evaluator');
     if (!/^[A-Za-z0-9._:/-]{1,100}$/.test(model)) throw new CliError('--model must be a model id using letters, numbers, dot, underscore, colon, slash, or hyphen');
     const art = opt('--file') ? readFileSync(opt('--file'), 'utf8') : await readStdin();
-    if (!art.trim()) return P('usage: deliberate case score save [id] --model <actual-model-id> [--independent] --file <path>  (or pipe via stdin)');
+    if (!art.trim()) return P('usage: deliberate case score save <id> --model <actual-model-id> [--independent] --file <path>  (or pipe via stdin)');
     const refreshed = kase.score != null;
     const independent = A.includes('--independent');
     const rr = await persistScore(store, p, kase, art, { model, independent });
     if (rr.score != null) emit('case.scored', { verdict: verdictOf(rr.score), refreshed, independent, lens: caseLens(kase) });
     return P(`saved score${rr.score != null ? ` · ${sc(rr.score)}` : ''} · ${independent ? 'independent evaluator' : 'same-session fallback'} → deliberate/cases/.../score.md`);
   }
-  return P('usage: deliberate case score <prompt|save> [id]');
+  return P('usage: deliberate case score <prompt|save> <id>');
 }
-// `case one-pager prompt|save [id]` — the lens-appropriate decision one-pager
+// `case one-pager prompt|save <id>` — the lens-appropriate decision one-pager
 // companion beside analysis.md (CLI-only, host-internal; not on the skill surface).
 async function caseOnepager(p, action, args) {
   const kase = targetCase(p.id, args[0]);
-  if (!kase) return P('no case — create one with deliberate case "<idea>"');
   if (action === 'prompt') {
     const { system, user } = await onepagerPrompt(store, p, kase);
     return P(`MODEL: (produce in THIS session — you are the Analyst; distil the finished record)\n===== SYSTEM =====\n${system}\n\n===== TASK =====\n${user}`);
   }
   if (action === 'save') {
     const art = opt('--file') ? readFileSync(opt('--file'), 'utf8') : await readStdin();
-    if (!art.trim()) return P('usage: deliberate case one-pager save [id] --file <path>  (or pipe via stdin)');
+    if (!art.trim()) return P('usage: deliberate case one-pager save <id> --file <path>  (or pipe via stdin)');
     const { file } = await persistOnepager(store, p, kase, art);
     return P(`saved one-pager → deliberate/cases/.../one-pager.md ${c.d}(${file?.exists ? 'written' : 'saved'})${c.x}`);
   }
-  return P('usage: deliberate case one-pager <prompt|save> [id]');
+  return P('usage: deliberate case one-pager <prompt|save> <id>');
 }
-// `case prototype prompt|save|list [id] [--surface <slug>]` — build the clickable/recomputable
+// `case prototype prompt|save|list <id> [--surface <slug>]` — build the clickable/recomputable
 // prototype(s), a companion built on request (never auto-run), like the score. A case can hold
 // one prototype per PRIMARY surface (init marks them): `--surface <slug>` targets one; omitting it
 // builds the single default surface at `prototype/index.html`.
 async function caseProto(p, action, args) {
   const kase = targetCase(p.id, args[0]);
-  if (!kase) return P('no case — create one with deliberate case "<idea>"');
   const surface = opt('--surface') || '';
   if (action === 'list') {
     const built = store.listPrototypes(kase.id);
@@ -251,13 +246,13 @@ async function caseProto(p, action, args) {
   }
   if (action === 'save') {
     const art = opt('--file') ? readFileSync(opt('--file'), 'utf8') : await readStdin();
-    if (!art.trim()) return P('usage: deliberate case prototype save [id] [--surface <slug>] --file <path>  (or pipe via stdin)');
+    if (!art.trim()) return P('usage: deliberate case prototype save <id> [--surface <slug>] --file <path>  (or pipe via stdin)');
     const { file, surface: slug } = await persistPrototype(store, p, kase, art, surface);
     emit('prototype.built', { surface: slug || 'default', lens: caseLens(kase) });
     const rel = `prototype/${slug ? slug + '/' : ''}index.html`;
     return P(`saved prototype${slug ? ` (${slug})` : ''} → deliberate/cases/.../${rel} ${c.d}(${file?.exists ? 'written' : 'saved'})${c.x}`);
   }
-  return P('usage: deliberate case prototype <prompt|save|list> [id] [--surface <slug>]');
+  return P('usage: deliberate case prototype <prompt|save|list> <id> [--surface <slug>]');
 }
 // List the project's briefs (newest first; delete one by removing its folder).
 function briefList(p) {
@@ -309,7 +304,7 @@ export const cmds = {
     const ignored = ensureGitignore(abs, vaultIgnoreEntries(abs));
     if (sub === 'prompt') {
       const { system, user } = await initPrompt(store, p);
-      return P(`MODEL: (produce in THIS session — you are the Initiator; read project files + external sources and edit the context files)\n===== SYSTEM =====\n${system}\n\n===== TASK =====\n${user}`);
+      return P(`MODEL: (produce in THIS session — you are the Initiator; read project files + project-external sources and edit the context files)\n===== SYSTEM =====\n${system}\n\n===== TASK =====\n${user}`);
     }
     P(`${c.g}✓${c.x} Deliberate initialized in ${abs}`);
     P(`  project: ${c.w}${p.name}${c.x} ${c.d}(${p.id})${c.x}`);
@@ -317,7 +312,7 @@ export const cmds = {
     P(`  ${c.d}the root README points agents to deliberate/context/${c.x}`);
     P(`  ${c.d}platform config (shared, cross-skill) is in the hidden ${c.x}${c.w}.sonorance/${c.x}${c.d} sibling${c.x}`);
     if (ignored.length) P(`  ${c.d}gitignored machine state: ${ignored.join(', ')}${c.x}`);
-    P(`  next → add external sources: ${c.w}deliberate source add <location>${c.x}`);
+    P(`  next → add durable material outside this folder: ${c.w}deliberate source add <location>${c.x}`);
     P(`         get the method: ${c.w}deliberate init prompt${c.x} ${c.d}(then fill product.md + competitors.md + ecosystem.md)${c.x}`);
     P(`         first landscape: ${c.w}deliberate brief prompt${c.x}`);
   },
@@ -349,6 +344,7 @@ export const cmds = {
     }
     P(`${c.g}✓${c.x} Deliberate app → ${c.w}${url}${c.x}`);
     P(`  ${c.d}${p ? `vault: ${p.dir}` : `no Deliberate project in ${abs} — run ${c.x}${c.w}deliberate init${c.x}${c.d} here first`}${c.x}`);
+    P(`  ${c.d}diagnostics: ${logFile()}${c.x}`);
     if (A.includes('--open')) openBrowser(url);
     P(`  ${c.d}Ctrl-C to stop.${c.x}`);
   },

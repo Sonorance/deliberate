@@ -15,6 +15,11 @@ after(() => rmSync(home, { recursive: true, force: true }));
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const cli = join(repoRoot, 'src/cli/deliberate.mjs');
 const runIn = (cwd, env, ...args) => execFileSync(process.execPath, [cli, ...args], { cwd, env: { ...process.env, ...env }, encoding: 'utf8' });
+const caseIdFrom = (output) => {
+  const match = output.replace(/\x1B\[[0-9;]*m/g, '').match(/^case ([a-f0-9]+) ·/m);
+  assert.ok(match, 'case creation prints its id');
+  return match[1];
+};
 const { installEngineConfig } = await import('../src/cli/deliberate.mjs');
 
 test('packaged installs pin the npm version instead of an expendable npx-cache path', () => {
@@ -60,7 +65,7 @@ test('public package copy leads with analyzing any idea or signal and avoids typ
   assert.doesNotMatch(copy, /\b(?:Product|Market|Strategy|Platform) case(?:s)?\b/);
 });
 
-test('the Initiator deduces real competitors (never empty); SKILL.md orchestrates + confirms them', () => {
+test('the Initiator maximizes qualified real competitors; SKILL.md orchestrates + confirms them', () => {
   const instr = readFileSync(join(repoRoot, 'roles/initiator/init/instructions.md'), 'utf8').replace(/\s+/g, ' ');
   const skill = readFileSync(join(repoRoot, 'skill/SKILL.md'), 'utf8').replace(/\s+/g, ' ');
   // Method (the role): deduce the REAL competitors; that's research, not fabrication.
@@ -68,8 +73,8 @@ test('the Initiator deduces real competitors (never empty); SKILL.md orchestrate
   assert.match(instr, /research, not fabrication/i, 'deducing real competitors is research, not fabrication');
   // Orchestration (SKILL.md): the guardrails + the confirm step stay in the playbook.
   assert.match(skill, /research, not fabrication/i, 'SKILL.md keeps the research-not-fabrication guardrail');
-  assert.match(skill, /[Nn]ever leave the roster empty/, 'SKILL.md keeps never-leave-empty');
-  assert.match(skill, /deduced competitors/i, 'the confirm step shows the deduced competitors');
+  assert.match(skill, /until another pass produces no new qualified name/i, 'SKILL.md continues discovery to saturation');
+  assert.match(skill, /complete qualified.*competitor.*ecosystem.*rosters/i, 'the confirm step shows the complete qualified rosters');
   assert.match(skill, /readout cadence\/alignment\/timezone/i, 'the confirm step shows the report-level period contract');
   assert.match(instr, /readout cadence\/alignment\/timezone/i, 'the Initiator asks the user to confirm the period contract');
   assert.match(skill, /confirm\/correct/i, 'the host asks the user to confirm/correct them');
@@ -79,6 +84,18 @@ test('SKILL.md `init` is thin orchestration that defers the method to `init prom
   const skill = readFileSync(join(repoRoot, 'skill/SKILL.md'), 'utf8');
   assert.match(skill, /LAUNCHER init prompt/, 'init orchestration fetches the method via `init prompt`');
   assert.match(skill, /Initiator/, 'names the Initiator role');
+});
+
+test('init curates durable project-external evidence and welcomes internal systems', () => {
+  const skill = readFileSync(join(repoRoot, 'skill/SKILL.md'), 'utf8').replace(/\s+/g, ' ');
+  const instructions = readFileSync(join(repoRoot, 'roles/initiator/init/instructions.md'), 'utf8').replace(/\s+/g, ' ');
+  for (const text of [skill, instructions]) {
+    assert.match(text, /internal\/private|internal resources/i, 'sources outside the folder are not misrepresented as organization-external');
+    assert.match(text, /CRM|support systems/i, 'internal evidence systems are named');
+    assert.match(text, /many signals|recurring signal|accumulate/i, 'durable multi-signal evidence is preferred');
+    assert.match(text, /one-off feedback|one feedback file|isolated feedback/i, 'isolated customer feedback is rejected as project context');
+    assert.match(text, /point-in-time (?:metric )?export/i, 'snapshot exports are rejected as project context');
+  }
 });
 
 test('`deliberate init` sets up the CURRENT folder: context under deliberate/context/, cases under deliberate/', () => {
@@ -91,17 +108,18 @@ test('`deliberate init` sets up the CURRENT folder: context under deliberate/con
   assert.match(prod, /## Competitors\s+See \[competitors\.md\]/, 'product.md references the canonical competitor file');
   assert.match(prod, /## Ecosystem\s+See \[ecosystem\.md\]/, 'product.md references the canonical ecosystem file');
   assert.match(competitors, /single source of truth/i, 'the competitor scaffold owns the roster and details');
-  assert.match(competitors, /never a token 2[–-]3/i, 'the competitor scaffold forbids a token roster');
+  assert.match(competitors, /no numeric target or cap/i, 'the competitor scaffold includes every qualified competitor');
+  assert.match(competitors, /Exclude manual workflows.*status-quo substitutes/is, 'the competitor scaffold excludes manual substitutes');
   assert.ok(existsSync(join(repo, '.sonorance', 'config.json')), 'platform config under the hidden .sonorance/');
   // The repo is now the current project and a case lands under deliberate/cases/<YYYY-MM-DD-slug>/.
-  runIn(repo, {}, 'case', 'Bulk archive stale mail');
+  const caseId = caseIdFrom(runIn(repo, {}, 'case', 'Bulk archive stale mail'));
   const artFile = join(repo, 'score-input.md');
   for (const stage of ['frame', 'shape', 'launch']) {
     writeFileSync(artFile, `# ${stage}\n\nGrounded ${stage}.`);
-    runIn(repo, {}, 'case', 'analysis', 'save', '--file', artFile);
+    runIn(repo, {}, 'case', 'analysis', 'save', caseId, '--file', artFile);
   }
   writeFileSync(artFile, '# Score\n\n**Score:** 7\n\nadvance.');
-  runIn(repo, {}, 'case', 'score', 'save', '--model', 'gpt-5.4', '--independent', '--file', artFile);
+  runIn(repo, {}, 'case', 'score', 'save', caseId, '--model', 'gpt-5.4', '--independent', '--file', artFile);
   const casesRoot = join(repo, 'deliberate', 'cases');
   const folder = readdirSync(casesRoot).find(d => d.startsWith('20') && d.includes('bulk-archive'));
   assert.match(folder, /^\d{4}-\d{2}-\d{2}-bulk-archive-stale$/, 'case folder is YYYY-MM-DD-slug (no number; slug ≤ 5 words / 20 chars)');
@@ -197,8 +215,9 @@ test('SKILL.md `readout` grounds all analysis in one completed, overridable repo
 test('SKILL.md requires workflow-specific, default-positive follow-up CTAs', () => {
   const body = readFileSync(join(repoRoot, 'skill/SKILL.md'), 'utf8');
   const routing = body.slice(body.indexOf('Every substantive workflow'), body.indexOf('## `init`'));
-  for (const next of ['`init` → run the first brief', '`brief` → run the recommended cases', 'product/market `case` → build the appropriate prototype', 'strategy/platform `case` → review the completed decision record in Sonorance', '`prototype` → open it for review', '`readout` → run the recommended cases', '`matchup` → run the recommended cases', '`source add|remove` → refresh affected project context', '`address` → review the resolved changes in Diff mode'])
+  for (const next of ['`init` → run the first brief', 'product/market `case` → build the appropriate prototype', 'strategy/platform `case` → review the completed decision record in Sonorance', '`prototype` → open it for review', '`source add|remove` → refresh affected project context', '`address` → review the resolved changes in Diff mode'])
     assert.match(routing, new RegExp(next.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `documents the ${next} handoff`);
+  assert.match(routing, /`brief`, `readout`, and `matchup`.*open the saved result for review in Sonorance while running the recommended cases/is);
   assert.match(routing, /default yes/g, 'substantive CTAs are default-positive');
 
   const init = body.slice(body.indexOf('## `init`'), body.indexOf('## `case <idea>`'));
@@ -206,18 +225,22 @@ test('SKILL.md requires workflow-specific, default-positive follow-up CTAs', () 
   assert.match(init, /\*\*Run brief\*\* \(default\)/, 'running the Brief is the default');
   assert.doesNotMatch(init, /Run (?:the first |a )?case now\?/i, 'init does not bypass the hero Brief by recommending a case');
 
-  const brief = body.slice(body.indexOf('## `brief`'), body.indexOf('## `readout [period]`'));
-  assert.match(brief, /triggering (?:signal and )?evidence/i, 'recommended cases preserve their motivating evidence');
-  assert.match(brief, /why analy(?:sis|zing it) is valuable now/i, 'recommended cases explain the value of analysis');
-  assert.match(brief, /decision.*unlock/i, 'recommended cases name the decision they unlock');
-  assert.match(brief, /Run recommended cases.*default/is, 'running recommended cases is the default Brief CTA');
-
-  const matchup = body.slice(body.indexOf('## `matchup`'), body.indexOf('## `case list`'));
-  assert.match(matchup, /triggering insight/i, 'matchup case recommendations preserve the actionable insight');
-  assert.match(matchup, /why analysis is valuable now/i, 'matchup case recommendations explain why analysis matters');
-  assert.match(matchup, /decision.*unlock/i, 'matchup case recommendations name the decision they unlock');
-  assert.match(matchup, /Run the recommended cases from this matchup\?/i, 'matchups funnel case-worthy insights into cases');
-  assert.doesNotMatch(matchup, /run a (?:fresh )?(?:landscape )?brief/i, 'matchups no longer default to another brief');
+  const workflows = [
+    ['brief', body.slice(body.indexOf('## `brief`'), body.indexOf('## `readout [period]`'))],
+    ['readout', body.slice(body.indexOf('## `readout [period]`'), body.indexOf('## `matchup`'))],
+    ['matchup', body.slice(body.indexOf('## `matchup`'), body.indexOf('## `case list`'))],
+  ];
+  for (const [name, section] of workflows) {
+    assert.match(section, new RegExp(`How should we follow up on this ${name}\\?`, 'i'));
+    assert.match(section, /\*\*Open for review \+ run cases\*\* \(default\)/);
+    assert.match(section, /\*\*Open for review only\*\*/);
+    assert.match(section, /\*\*Other\*\*/);
+    assert.match(section, /as a background process/);
+    assert.match(section, /continue without waiting/);
+  }
+  assert.match(workflows[0][1], /triggering (?:signal and )?evidence/i, 'brief case recommendations preserve their motivating evidence');
+  assert.match(workflows[2][1], /triggering insight/i, 'matchup case recommendations preserve the actionable insight');
+  assert.doesNotMatch(workflows[2][1], /run a (?:fresh )?(?:landscape )?brief/i, 'matchups no longer default to another brief');
 });
 
 test('SKILL.md opens produced artifacts directly in Sonorance', () => {
@@ -230,7 +253,7 @@ test('SKILL.md opens produced artifacts directly in Sonorance', () => {
 
 test('SKILL.md preserves the prototype quality contract without delegating it to generic brevity', () => {
   const body = readFileSync(join(repoRoot, 'skill/SKILL.md'), 'utf8');
-  const prototype = body.slice(body.indexOf('## `prototype [id]`'), body.indexOf('## `brief`'));
+  const prototype = body.slice(body.indexOf('## `prototype <id>`'), body.indexOf('## `brief`'));
   assert.match(prototype, /every shaped journey step in order/);
   assert.match(prototype, /real product conventions/);
   assert.match(prototype, /reachable failure or recovery path/);
@@ -247,10 +270,18 @@ test('the Initiator keeps competitor and ecosystem rosters single-sourced while 
   assert.match(instr, /ecosystem\.md.*canonical ecosystem roster, details, and monitoring sources/i);
   assert.match(instr, /\bMarket\b/, 'the method writes a Market section');
   assert.match(instr, /standards? & protocols/i, 'names standards & protocols to watch');
-  assert.match(instr, /dependency \/ complement \/ channel \/ mover|Dependency.*Complement.*Channel.*Mover/i, 'classifies ecosystem players by position');
+  assert.match(instr, /Adjacent.*Complement.*Channel.*Mover/i, 'classifies ecosystem players by position');
+  assert.match(instr, /another market or niche.*similar strategy, packaging, go-to-market motion, goals, technology, or product dynamics/i, 'includes decision-relevant adjacent products');
+  assert.match(instr, /Complement.*before, alongside, or after.*same end-to-end user workflow.*co-use or interoperability.*raises the value of both/is, 'defines complements through mutual value in a shared workflow');
+  assert.match(instr, /not chosen instead of this product.*not included merely because this product technically depends on it.*not any generic tool/is, 'excludes substitutes, dependencies, and generic co-use from complements');
+  assert.doesNotMatch(instr, /\*\*Dependency\*\*|dependency details where applicable/i, 'dependency is not an ecosystem position');
   assert.match(instr, /current.*potential|potential.*current/i, 'ecosystem players carry a current/potential status');
-  assert.match(instr, /For each, record what it is, how it overlaps, why it matters/i, 'competitor details live with the roster');
-  assert.match(instr, /For each strategically material player, record its position, status, relationship, decision relevance/i, 'ecosystem details live with the roster');
+  assert.match(instr, /For each, record its discovery lane, what it is, how it overlaps, why it matters/i, 'competitor coverage and details live with the roster');
+  assert.match(instr, /For each strategically material player, record its position, status, relationship or analogy, decision relevance/i, 'ecosystem details live with the roster');
+  assert.match(instr, /direct category rivals.*cross-category products or services.*suite\/platform products.*emerging, niche, regional, or open-source products/is, 'competitor discovery covers independent commercial lanes');
+  assert.match(instr, /exclude manual workflows.*spreadsheets used as a manual workaround.*internal processes.*do nothing.*status-quo substitutes/is, 'manual and status-quo substitutes stay out of competitors');
+  assert.match(instr, /until another pass across all lanes yields no new qualified competitor/i, 'competitor discovery continues to saturation');
+  assert.match(instr, /Include \*\*every\*\* qualified competitor with no numeric target or cap/i, 'qualified competitors are not arbitrarily capped');
   assert.match(instr, /changelog|breaking-change notes/i, 'the sources are change-detection oriented');
   assert.match(instr, /\/deliberate brief|landscape brief/i, 'states these ground the brief');
 });
@@ -279,25 +310,24 @@ test('init records one durable readout period contract, never snapshot baselines
   assert.match(metrics, /previous readout artifact is never the metric baseline/i);
 });
 
-test('SKILL.md `init` reads project files directly and discovers only external sources section by section', () => {
+test('SKILL.md `init` reads project files directly and discovers only durable project-external sources section by section', () => {
   const skill = readFileSync(join(repoRoot, 'skill/SKILL.md'), 'utf8');
   const step2 = skill.slice(skill.indexOf('## `init`'), skill.indexOf('## `case <idea>`'));
   assert.match(step2, /read every relevant file inside the current project directly as automatic context/i);
   assert.match(step2, /never propose, confirm, or persist an in-project file or folder as a source/i);
-  assert.match(step2, /source add/, 'still collects the user\u2019s manual external sources via `source add`');
-  assert.match(step2, /Discover external sources by section, not as one undifferentiated pile/i, 'discovery begins with the grounding sections, not a generic source pile');
+  assert.match(step2, /source add/, 'still collects the user\u2019s manually supplied sources via `source add`');
+  assert.match(step2, /Discover durable sources by section, not as one undifferentiated pile/i, 'discovery begins with the grounding sections, not a generic source pile');
   for (const section of ['product-strategy', 'code-delivery', 'metrics-data', 'customer-voice', 'go-to-market'])
     assert.match(step2, new RegExp(section), `actively covers ${section}`);
-  assert.match(step2, /at least three distinct, high-signal external sources per section when they genuinely exist/i, 'seeks meaningful section depth without a hard quota');
-  assert.match(step2, /accept fewer—or none—when the project files and a smaller authoritative set are sufficient/i, 'allows fewer stronger sources');
-  assert.match(step2, /never pad a quota/i, 'forbids noisy quota padding');
-  assert.match(step2, /first-party/i, 'applies the first-party source discipline');
+  assert.match(step2, /systems and corpora with recurring signal/i, 'prefers durable multi-signal sources');
+  assert.match(step2, /Accept fewer—or none—when the project files and a smaller authoritative set are sufficient/i, 'allows fewer stronger sources');
+  assert.match(step2, /never pad with weak/i, 'forbids noisy padding');
   assert.match(step2, /Confirm before adding/i, 'has a confirmation gate before adding discovered sources');
-  assert.match(step2, /every auto-discovered external candidate/i, 'shows the complete external candidate list');
+  assert.match(step2, /every auto-discovered project-external candidate/i, 'shows the complete candidate list');
   assert.match(step2, /Never include an in-project file/i, 'keeps project files out of the candidate list');
   assert.match(step2, /- <location> - <source description>/, 'uses the exact readable source bullet shape');
   assert.match(step2, /Do not collapse the list into counts or prose/i, 'forbids incomplete summary-only confirmation');
-  assert.match(step2, /alongside the manual external sources/i, 'option: add alongside the manual external sources');
+  assert.match(step2, /alongside the manually supplied sources/i, 'option: add alongside manually supplied sources');
   assert.match(step2, /keep only the ones they gave/i, 'option: keep only the manual sources');
   assert.match(step2, /change the list/i, 'option: change the proposed list');
   assert.match(step2, /never drop or overwrite/i, 'the manual sources are never dropped');
@@ -311,11 +341,11 @@ test('the Initiator method defines section-led discovery and strategic ecosystem
   assert.ok(sec.length > 0, 'the method has a dedicated .sonorance/sources.md section');
   assert.match(sec, /project folder itself is automatic context/i);
   assert.match(sec, /never propose, confirm, or record a file or folder inside it as a source/i);
-  assert.match(sec, /contains only external URLs and local paths outside the current project folder/i);
+  assert.match(sec, /contains only project-external locations/i);
   assert.match(sec, /discover section by section/i, 'sources are sought for each decision section');
   assert.match(sec, /Do not detect one generic pile/i, 'generic discovery-then-bucketing is forbidden');
-  assert.match(sec, /prefer at least three distinct high-signal external sources when they genuinely exist/i, 'prefers useful depth');
-  assert.match(sec, /keep fewer—or none—when the project files and a smaller authoritative set are sufficient/i, 'authority wins over quotas');
+  assert.match(sec, /aggregate recurring evidence or remain canonical over time/i, 'prefers useful durable depth');
+  assert.match(sec, /Keep fewer—or none—when the project files and a smaller authoritative set are sufficient/i, 'authority wins over quotas');
   assert.match(sec, /- <location> - <source description>/, 'confirmation lists every source in the exact required shape');
   assert.match(sec, /Public Issues page.*customer-voice/i, 'verified public GitHub Issues become Customer Voice');
   assert.match(sec, /never drop or overwrite/i, 'the manual sources are never dropped');
@@ -323,6 +353,12 @@ test('the Initiator method defines section-led discovery and strategic ecosystem
   const ecosystem = instr.slice(instr.indexOf('- **Ecosystem:**'), instr.indexOf('### `competitors.md`'));
   assert.match(ecosystem, /strategically material named players/i, 'the ecosystem is strategic rather than exhaustive');
   assert.match(ecosystem, /news.*could plausibly trigger an actionable product or business decision/is, 'inclusion is governed by decision relevance');
-  assert.match(ecosystem, /do not copy the manifest into the roster/i, 'dependency manifests are evidence, not a roster');
-  assert.match(ecosystem, /exclude ordinary libraries, utilities, transitive packages/i, 'implementation-detail dependencies are excluded');
+  assert.match(ecosystem, /another market or niche/i, 'adjacent products extend ecosystem discovery beyond the current category');
+  assert.match(ecosystem, /similar strategy, packaging, go-to-market motion, goals, technology, or product dynamics/i, 'adjacency is grounded in transferable similarities');
+  assert.match(ecosystem, /before, alongside, or after.*same end-to-end user workflow.*co-use or interoperability.*raises the value of both/is, 'complements require mutual value in a shared workflow');
+  assert.match(ecosystem, /at least two discovery routes per position/i, 'each ecosystem position gets independent discovery coverage');
+  assert.match(ecosystem, /until another pass produces no new player that meets the qualification gate/i, 'ecosystem discovery continues to saturation');
+  assert.match(ecosystem, /Include every qualified player rather than aiming for a quota or cap/i, 'qualified ecosystem players are not arbitrarily capped');
+  assert.match(ecosystem, /vendors included merely because the product depends on them/i, 'dependency status alone does not create an ecosystem player');
+  assert.match(ecosystem, /never derive this roster from package manifests, lockfiles, or implementation inventories/i, 'implementation dependencies are not ecosystem input');
 });

@@ -47,11 +47,11 @@ deliberate serve [--open] [--port <n>] [--file <path>]
 deliberate install [--here|--project <dir>]
 deliberate case "<idea>" [--lens <product|market|strategy|platform>]
 deliberate case list
-deliberate case analysis prompt|save [id] [--file <path> | --note <text>]
-deliberate case score prompt [id]
-deliberate case score save [id] --model <id> [--independent] [--file <path>]
-deliberate case one-pager prompt|save [id] [--file <path>]
-deliberate case prototype prompt|save|list [id] [--surface <slug>] [--file <path>]
+deliberate case analysis prompt|save <case-id> [--file <path> | --note <text>]
+deliberate case score prompt <case-id>
+deliberate case score save <case-id> --model <model-id> [--independent] [--file <path>]
+deliberate case one-pager prompt|save <case-id> [--file <path>]
+deliberate case prototype prompt|save|list <case-id> [--surface <slug>] [--file <path>]
 deliberate brief prompt|save|list
 deliberate readout prompt|save|list
 deliberate readout chart --spec <json> --output <svg>
@@ -62,9 +62,15 @@ deliberate comment list
 deliberate comment <commentId> resolve [--note "<text>"] [--revised]
 ```
 
-Project files are automatic grounding: `init` reads relevant files inside the current folder directly. `source add` is only for external URLs or local paths outside that folder; in-project files are rejected rather than recorded in `.sonorance/sources.md`.
+Project files are automatic grounding: `init` reads relevant files inside the current folder directly. `source add` records durable resources outside that folder; these may be internal/private systems such as dashboards, document collections, repositories, CRM/support/feedback systems, research repositories, or issue trackers, as well as public sources. Init curates recurring signal and maintained canonical context rather than isolated feedback, individual cases/interviews, point-in-time exports, or other small observations. In-project files are rejected rather than recorded in `.sonorance/sources.md`.
 
 Project context is split to keep edits single-sourced: `product.md` contains core product context and links only from its Competitors and Ecosystem sections; `competitors.md` owns the complete competitor roster, details, and monitoring sources; `ecosystem.md` owns the complete ecosystem roster, details, and monitoring sources. Every workflow receives all three files.
+
+Init maximizes qualified roster coverage rather than targeting an arbitrary count. Competitor discovery independently covers direct rivals, cross-category commercial alternatives, overlapping suites/platforms, and emerging or niche products until another complete search pass yields no new qualified name. Every included competitor needs current overlap evidence and an official source; manual workflows, spreadsheet workarounds, internal processes, "do nothing," and other status-quo substitutes are excluded.
+
+Ecosystem discovery applies the same saturation-and-evidence rule across adjacent products, complements, channels, and movers. A complement is a distinct product or service used before, alongside, or after Deliberate's subject product in the same end-to-end workflow, where co-use or interoperability raises the value of both for shared users. It is not a substitute for the primary job, a dependency included for that reason alone, or merely another tool the same user happens to use.
+
+After a brief, readout, or matchup surfaces case-worthy decisions, the default follow-up opens the saved result in Sonorance for review and starts the recommended case analyses without waiting for review to finish. The alternatives are to open the result without running cases or choose another action.
 
 The underlying `--lens` option is host orchestration; users normally run `/deliberate case <idea>` without it. Run `deliberate help --skill` for generated, current command guidance.
 
@@ -74,7 +80,7 @@ The underlying `--lens` option is host orchestration; users normally run `/delib
 .sonorance/
   config.json
   plugins.json
-  sources.md               # external grounding sources only
+  sources.md               # durable grounding outside this folder
   local/
 deliberate/
   context/
