@@ -187,12 +187,14 @@ test('SKILL.md documents the one-pager: the `case` flow generates it, and `addre
   assert.match(address, /regenerate/i, 'address regenerates the one-pager after a material analysis change');
 });
 
-test('SKILL.md documents the `brief` command: the Briefer flow, the 3-month window, and sourced filtering', () => {
+test('SKILL.md documents the `brief` command: the Briefer flow, overridable 90-day window, and sourced filtering', () => {
   const body = readFileSync(join(repoRoot, 'skill/SKILL.md'), 'utf8');
-  assert.match(body, /##\s+`brief`/, 'there is a brief section');
+  assert.match(body, /##\s+`brief \[period\]`/, 'there is a brief section');
   assert.match(body, /Briefer/, 'names the Briefer role');
   assert.match(body, /since the last brief/i, 'frames the window as since the last brief');
-  assert.match(body, /3 months/, 'caps the look-back at 3 months');
+  assert.match(body, /90 days/, 'caps the default look-back at 90 days');
+  assert.match(body, /natural-language override/i, 'accepts a period override in the user prompt');
+  assert.match(body, /--period-start.*--period-end/i, 'carries the selected period through the launcher');
   assert.match(body, /brief prompt/, 'documents the brief prompt step');
   assert.match(body, /brief save/, 'documents the brief save step');
   assert.match(body, /source link|Source/, 'requires source links for findings');
@@ -226,7 +228,7 @@ test('SKILL.md requires workflow-specific, default-positive follow-up CTAs', () 
   assert.doesNotMatch(init, /Run (?:the first |a )?case now\?/i, 'init does not bypass the hero Brief by recommending a case');
 
   const workflows = [
-    ['brief', body.slice(body.indexOf('## `brief`'), body.indexOf('## `readout [period]`'))],
+    ['brief', body.slice(body.indexOf('## `brief [period]`'), body.indexOf('## `readout [period]`'))],
     ['readout', body.slice(body.indexOf('## `readout [period]`'), body.indexOf('## `matchup`'))],
     ['matchup', body.slice(body.indexOf('## `matchup`'), body.indexOf('## `case list`'))],
   ];

@@ -201,7 +201,7 @@ test('legacy active_case state and unused repo metadata are deleted when a vault
   reopened.close();
 });
 
-test('case creation rejects unknown lenses and strategy cases do not offer prototypes', () => {
+test('Case creation rejects unknown lenses and strategy cases do not offer prototypes', () => {
   const repo = mkdtempSync(join(tmpdir(), 'dlb-lenses-'));
   try {
     runIn(repo, 'init');
@@ -230,7 +230,7 @@ test('case creation rejects unknown lenses and strategy cases do not offer proto
   }
 });
 
-test('case commands reject ambiguous id prefixes instead of mutating the first match', () => {
+test('Case commands reject ambiguous id prefixes instead of mutating the first match', () => {
   const repo = mkdtempSync(join(tmpdir(), 'dlb-ambiguous-'));
   try {
     runIn(repo, 'init');
@@ -249,10 +249,10 @@ test('case commands reject ambiguous id prefixes instead of mutating the first m
     assert.match(unique.stdout, /===== TASK =====/);
     const missing = resultIn(repo, ['case', 'score', 'prompt', 'not-a-case']);
     assert.equal(missing.status, 1, 'missing explicit references are command failures');
-    assert.match(missing.stderr, /case not found: not-a-case/);
+    assert.match(missing.stderr, /Case not found: not-a-case/);
     const omitted = resultIn(repo, ['case', 'analysis', 'prompt']);
     assert.equal(omitted.status, 1, 'omitted references are command failures');
-    assert.match(omitted.stderr, /case reference required/);
+    assert.match(omitted.stderr, /Case reference required/);
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }
@@ -404,7 +404,7 @@ test('CLI `comment list` + `comment <id> resolve` carry in-record comments to th
   const repo = mkdtempSync(join(tmpdir(), 'dlb-bridge-'));
   runIn(repo, 'init');
   runIn(repo, 'case', 'A case to comment on');
-  const child = spawn(process.execPath, [cli, 'serve', '--port', '0'], { cwd: repo, env: process.env, stdio: 'ignore' });
+  const child = spawn(process.execPath, [cli, 'serve'], { cwd: repo, env: process.env, stdio: 'ignore' });
   try {
     const infoPath = join(realpathSync(repo), '.sonorance', 'local', 'serve.json');
     let state, port;
@@ -417,6 +417,8 @@ test('CLI `comment list` + `comment <id> resolve` carry in-record comments to th
       if (!state) await new Promise(r => setTimeout(r, 100));
     }
     assert.ok(state, 'the app becomes reachable through its serve.json discovery pointer');
+    assert.ok(Number.isInteger(port) && port > 0, 'serve defaults to an available OS-assigned port');
+    assert.notEqual(port, 7777, 'serve no longer claims the shared fixed port 7777 by default');
     const caseId = state.cases[0].id;
     // The app knows the record's file (from /api/record); the browser comments on it.
     const rec = await (await fetch(`http://localhost:${port}/api/record?id=${caseId}`)).json();
@@ -493,6 +495,10 @@ test('comment bridge transport failures are nonzero errors, never empty-success 
   const repo = mkdtempSync(join(tmpdir(), 'dlb-bridge-offline-'));
   try {
     runIn(repo, 'init');
+    const { DELIBERATE_PORT: _configuredPort, ...noPortEnv } = process.env;
+    const undiscovered = resultIn(repo, ['comment', 'list'], noPortEnv);
+    assert.equal(undiscovered.status, 1);
+    assert.match(undiscovered.stderr, /could not find a running app for this project/);
     const env = { ...process.env, DELIBERATE_PORT: '1' };
     const list = resultIn(repo, ['comment', 'list'], env);
     assert.equal(list.status, 1);
@@ -514,8 +520,24 @@ test('CLI `brief prompt` prints the reporting window + template for the host to 
   const out = runIn(repo, 'brief', 'prompt');
   assert.match(out, /produce in THIS session/, 'the host produces the brief itself (no sub-agent line)');
   assert.match(out, /Reporting window \(STRICT\)/, 'the strict window is stated');
-  assert.match(out, /last 3 months/, 'a first-ever brief caps at 3 months');
+  assert.match(out, /last 90 days/, 'a first-ever brief caps at 90 days');
   assert.match(out, /OUTPUT TEMPLATE/, 'the brief template is appended');
+  rmSync(repo, { recursive: true, force: true });
+});
+
+test('CLI `brief prompt|save` preserves an explicit reporting period', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'dlb-brief-period-'));
+  runIn(repo, 'init');
+  const args = ['--period-start', '2026-06-01', '--period-end', '2026-06-30'];
+  const prompt = runIn(repo, 'brief', 'prompt', ...args);
+  assert.match(prompt, /user-requested period/);
+  assert.match(prompt, /period_start: June 1, 2026/);
+  const body = '# Brief\n\nPeriod: June 1, 2026 – June 30, 2026.\n\n## Key highlights\n\n* Selected period.\n';
+  execFileSync(process.execPath, [cli, 'brief', 'save', ...args], { cwd: repo, env: process.env, encoding: 'utf8', input: body });
+  const bdir = join(realpathSync(repo), 'deliberate', 'briefs');
+  const md = readFileSync(join(bdir, readdirSync(bdir)[0], 'brief.md'), 'utf8');
+  assert.match(md, /period_start: 1780272000000/);
+  assert.match(md, /period_end: 1782863999999/);
   rmSync(repo, { recursive: true, force: true });
 });
 

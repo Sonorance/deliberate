@@ -80,14 +80,14 @@ const resolveCase = (pid, ref) => {
   if (exact) return exact.id;
   const matches = list.filter(s => s.id.startsWith(r));
   if (matches.length === 1) return matches[0].id;
-  if (!matches.length) throw new CliError(`case not found: ${r}`);
+  if (!matches.length) throw new CliError(`Case not found: ${r}`);
   throw new CliError(`ambiguous case reference "${r}" — matches ${matches.map(s => s.id).join(', ')}; use a longer prefix`);
 };
 // Every case operation requires an explicit id or unique prefix. A project can have many cases in
 // progress, so there is no singleton "active case" fallback.
 const targetCase = (pid, maybeRef) => {
   const ref = (maybeRef != null && !String(maybeRef).startsWith('-')) ? maybeRef : null;
-  if (ref == null) throw new CliError('case reference required — pass a full id or unique prefix (see deliberate case list)');
+  if (ref == null) throw new CliError('Case reference required — pass a full id or unique prefix (see deliberate case list)');
   return store.getCase(resolveCase(pid, ref));
 };
 const readStdin = () => new Promise(res => { if (process.stdin.isTTY) return res(''); let d = ''; process.stdin.setEncoding('utf8'); process.stdin.on('data', ch => d += ch); process.stdin.on('end', () => res(d)); });
@@ -106,13 +106,17 @@ function openBrowser(url) {
 // The running app daemon (deliberate serve) that the comment bridge talks to.
 // `address` and `resolve` are HTTP clients of it — the agent (this harness) and the
 // browser meet through that local server. Port resolution: --port, else $DELIBERATE_PORT,
-// else the port `serve` recorded for THIS project's vault (deliberate/.config/serve.json),
-// else the default — so a session in the project folder reaches the right server.
+// else the port `serve` recorded for THIS project's vault. A session in the project folder
+// therefore reaches the right OS-assigned port without guessing a shared default.
 const daemonPort = () => {
-  if (opt('--port')) return +opt('--port');
-  if (process.env.DELIBERATE_PORT) return +process.env.DELIBERATE_PORT;
+  const explicit = opt('--port') ?? process.env.DELIBERATE_PORT;
+  if (explicit != null && explicit !== '') {
+    const port = Number(explicit);
+    if (Number.isInteger(port) && port > 0 && port <= 65535) return port;
+    throw new CommentClientError('port must be an integer from 1 to 65535');
+  }
   try { const p = curProject(); if (p) { const info = JSON.parse(readFileSync(serveInfoPath(p.dir), 'utf8')); if (info && info.port && pidAlive(info.pid)) return +info.port; } } catch { /* no pointer */ }
-  return 7777;
+  throw new CommentClientError('could not find a running app for this project — start it with `deliberate serve`');
 };
 // A recorded server is only trustworthy if still alive: probe with `process.kill(pid, 0)` (no
 // signal sent). Lenient — only a definitively-dead pid (ESRCH) is rejected, so a stale serve.json
@@ -196,7 +200,7 @@ async function caseScore(p, action, args) {
   }
   if (action === 'save') {
     const model = opt('--model');
-    if (!model) throw new CliError('case score save requires --model <actual-model-id>; add --independent only for an isolated evaluator');
+    if (!model) throw new CliError('Case score save requires --model <actual-model-id>; add --independent only for an isolated evaluator');
     if (!/^[A-Za-z0-9._:/-]{1,100}$/.test(model)) throw new CliError('--model must be a model id using letters, numbers, dot, underscore, colon, slash, or hyphen');
     const art = opt('--file') ? readFileSync(opt('--file'), 'utf8') : await readStdin();
     if (!art.trim()) return P('usage: deliberate case score save <id> --model <actual-model-id> [--independent] --file <path>  (or pipe via stdin)');
@@ -321,7 +325,7 @@ export const cmds = {
 
   // Start the local app: the web UI (src/ui) served over http by the
   // daemon, reading/editing the vault's records. It's the app UI, not the
-  // pipeline — runs are driven by the /deliberate skill in your coding agent.
+  // pipeline — runs are driven by the /deliberate skill in your agent.
   // Holds the process open (the listening socket keeps Node alive).
   async serve() {
     // Serve the folder you launch from: make it the current project so the UI shows
@@ -438,15 +442,22 @@ export const cmds = {
   // lists them. To read a brief, open it in the app or read its file directly.
   async brief([sub]) {
     const p = requireProject();
+    const periodStart = opt('--period-start'), periodEnd = opt('--period-end');
+    if ((sub === 'prompt' || sub === 'save') && A.includes('--period-start') && !periodStart) {
+      throw new CliError('--period-start requires a date in YYYY-MM-DD format');
+    }
+    if ((sub === 'prompt' || sub === 'save') && A.includes('--period-end') && !periodEnd) {
+      throw new CliError('--period-end requires a date in YYYY-MM-DD format');
+    }
     if (sub === 'list') return briefList(p);
     if (sub === 'prompt') {
-      const { system, user } = await briefPrompt(store, p);
+      const { system, user } = await briefPrompt(store, p, { periodStart, periodEnd });
       return P(`MODEL: (produce in THIS session — you are the Briefer; research the landscape yourself)\n===== SYSTEM =====\n${system}\n\n===== TASK =====\n${user}`);
     }
     if (sub === 'save') {
       const art = opt('--file') ? readFileSync(opt('--file'), 'utf8') : await readStdin();
-      if (!art.trim()) return P('usage: deliberate brief save --file <path>  (or pipe via stdin)');
-      const { brief, window } = await persistBrief(store, p, art);
+      if (!art.trim()) return P('usage: deliberate brief save [--file <path>] [--period-start <YYYY-MM-DD> --period-end <YYYY-MM-DD>]  (or pipe via stdin)');
+      const { brief, window } = await persistBrief(store, p, art, { periodStart, periodEnd });
       emit('brief.completed', {});
       return P(`saved brief ${c.w}${brief.id}${c.x} ${c.d}· ${briefPeriodLabel(window.start, window.end)}${c.x} → deliberate/briefs/`);
     }

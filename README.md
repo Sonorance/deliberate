@@ -1,6 +1,6 @@
 # Deliberate
 
-Deliberate is a files-first product toolkit inside your coding agent. It turns any consequential idea or signal—from a feature to a change in strategy, marketing, or the platform and ecosystem—into grounded, reviewable product work in the current repository. The CLI builds prompts, validates role configuration, and persists artifacts; the host coding agent performs the reasoning.
+Deliberate is a files-first product toolkit inside your agent. It turns any consequential idea or signal—from a feature to a change in strategy, marketing, or the platform and ecosystem—into grounded, reviewable product work in the current repository. The CLI builds prompts, validates role configuration, and persists artifacts; the host agent performs the reasoning.
 
 ## Install and run
 
@@ -10,7 +10,7 @@ Node.js 22.5 or newer is required.
 npx deliberate-cli install
 ```
 
-Use `/deliberate` in a compatible coding-agent harness. A typical first journey establishes the product and market baseline before creating a case:
+An **agent harness** is the app or CLI where an agent runs, uses tools, and loads skills—for example, OpenAI Codex or GitHub Copilot. Deliberate's current installer targets GitHub Copilot CLI. A typical first journey establishes the product and market baseline before creating a case:
 
 ```text
 /deliberate init
@@ -23,7 +23,9 @@ Use `/deliberate` in a compatible coding-agent harness. A typical first journey 
 /deliberate readout
 ```
 
-Run `deliberate serve --open` to review the generated Markdown, inspect diffs, and leave anchored comments in Sonorance. Add `--file "<project-relative-path>"` to open a specific case, brief, readout, or matchup immediately. Project-required commands operate only in an initialized current working directory, and `deliberate init` installs the project-local `/sonorance` review skill used by the UI's address-comments guidance.
+The first brief defaults to the previous 90 days. Add a natural-language period when needed, such as `/deliberate brief for the last 30 days`.
+
+Run `deliberate serve --open` to review the generated Markdown, inspect diffs, and leave anchored comments in Sonorance. The operating system selects an available port by default; use `--port <n>` only when you need a fixed one. Add `--file "<project-relative-path>"` to open a specific case, brief, readout, or matchup immediately. Project-required commands operate only in an initialized current working directory, and `deliberate init` installs the project-local `/sonorance` review skill used by the UI's address-comments guidance.
 
 ## Analyze any idea or signal
 

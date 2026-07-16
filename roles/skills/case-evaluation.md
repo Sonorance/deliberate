@@ -1,4 +1,4 @@
-# case evaluation
+# Case evaluation
 
 Score the completed case as an advisory second opinion on a 0–10 scale. The score answers whether the recommended decision should advance, not whether the document is polished.
 

@@ -19,7 +19,7 @@ export const FS_LAYOUT = [
   ['.sonorance/plugins.json', 'The vault’s enabled bundled plugin ids — Deliberate registers itself here so `sonorance serve` composes its capabilities additively. Committed.'],
   ['.sonorance/sources.md', 'The project’s categorized project-external grounding sources: durable internal or public resources outside the current folder, grouped into product, code, data, customer, go-to-market, and other sections. Committed.'],
   ['deliberate/', 'Deliberate’s home in the repo — everything below lives here.'],
-  ['deliberate/briefs/<YYYY-MM-DD>/brief.md', 'A landscape brief — competitive + market changes since the last brief (≤ 3 months).'],
+  ['deliberate/briefs/<YYYY-MM-DD>/brief.md', 'A landscape brief — competitive + market changes for the selected period (90-day first-run default).'],
   ['deliberate/cases/<case>/analysis.md', 'The whole case: frontmatter (lens, state, score, per-stage) + the decision record — title, a 1–2 sentence case summary, then one lens-shaped section per stage in funnel order.'],
   ['deliberate/cases/<case>/log.jsonl', 'The producer/evaluator run log for the case.'],
   ['deliberate/cases/<case>/one-pager.md', 'The lens-appropriate decision one-pager — product reverse PR-FAQ, market decision brief, strategy memo, or platform decision memo.'],

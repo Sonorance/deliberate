@@ -11,7 +11,7 @@
 
 ## 0. Timeframe — the whole game (Brief only)
 A brief reports **only what changed inside the window** you are given (`period_start → period_end`).
-- The window is *since the last brief*, capped at **3 months**. If a change shipped, was announced, or
+- The default window is *since the last brief*, capped at **90 days**; a user-requested period overrides that cadence. If a change shipped, was announced, or
   was reported **before `period_start`, it does not belong in this brief** — a prior brief already owned
   it (or it is too old to be news).
 - Date every finding against the window before you keep it. If you cannot establish that a change

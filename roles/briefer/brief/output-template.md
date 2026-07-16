@@ -1,6 +1,6 @@
 # Brief
 
-Period: _<period_start> – <period_end> (the window since the last brief, capped at 3 months)._
+Period: _<period_start> – <period_end> (the selected window; 90-day first-run default)._
 
 ## Key highlights
 
