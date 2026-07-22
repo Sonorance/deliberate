@@ -1,7 +1,7 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { tmpdir, homedir } from 'node:os';
+import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
@@ -20,23 +20,8 @@ const caseIdFrom = (output) => {
   assert.ok(match, 'case creation prints its id');
   return match[1];
 };
-const { installEngineConfig } = await import('../src/cli/deliberate.mjs');
-
-test('packaged installs pin the npm version instead of an expendable npx-cache path', () => {
-  const packagedRoot = mkdtempSync(join(tmpdir(), 'dlb-packaged-'));
-  try {
-    assert.deepEqual(installEngineConfig(packagedRoot, '/tmp/cache/src/cli/deliberate.mjs', '1.2.3'), {
-      package: 'deliberate-cli',
-      version: '1.2.3',
-    });
-    assert.deepEqual(installEngineConfig(repoRoot, cli, '1.2.3'), { engine: cli }, 'source checkouts keep their local development engine');
-  } finally {
-    rmSync(packagedRoot, { recursive: true, force: true });
-  }
-});
-
 test('SKILL.md has strictly-valid, user-invocable Copilot frontmatter for `deliberate`', () => {
-  const raw = readFileSync(join(repoRoot, 'skill/SKILL.md'), 'utf8');
+  const raw = readFileSync(join(repoRoot, 'skills/deliberate/SKILL.md'), 'utf8');
   const m = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   assert.ok(m, 'has a --- frontmatter block');
   // Parse with a STRICT YAML parser (what GitHub Copilot uses) — a bare `: ` or an
@@ -56,7 +41,7 @@ test('SKILL.md has strictly-valid, user-invocable Copilot frontmatter for `delib
 test('public package copy leads with analyzing any idea or signal and avoids typed-case jargon', () => {
   const copy = [
     readFileSync(join(repoRoot, 'README.md'), 'utf8'),
-    readFileSync(join(repoRoot, 'skill/SKILL.md'), 'utf8'),
+    readFileSync(join(repoRoot, 'skills/deliberate/SKILL.md'), 'utf8'),
   ].join('\n');
   assert.match(copy, /analy[sz]e any consequential idea or signal/i);
   for (const example of ['feature', 'marketing', 'strategy', 'platform and ecosystem'])
@@ -67,7 +52,7 @@ test('public package copy leads with analyzing any idea or signal and avoids typ
 
 test('the Initiator maximizes qualified real competitors; SKILL.md orchestrates + confirms them', () => {
   const instr = readFileSync(join(repoRoot, 'roles/initiator/init/instructions.md'), 'utf8').replace(/\s+/g, ' ');
-  const skill = readFileSync(join(repoRoot, 'skill/SKILL.md'), 'utf8').replace(/\s+/g, ' ');
+  const skill = readFileSync(join(repoRoot, 'skills/deliberate/SKILL.md'), 'utf8').replace(/\s+/g, ' ');
   // Method (the role): deduce the REAL competitors; that's research, not fabrication.
   assert.match(instr, /real, named.*competitors|competitors.*real, named/i, 'the method deduces the real, named competitors');
   assert.match(instr, /research, not fabrication/i, 'deducing real competitors is research, not fabrication');
@@ -81,13 +66,13 @@ test('the Initiator maximizes qualified real competitors; SKILL.md orchestrates 
 });
 
 test('SKILL.md `init` is thin orchestration that defers the method to `init prompt` (the Initiator role)', () => {
-  const skill = readFileSync(join(repoRoot, 'skill/SKILL.md'), 'utf8');
+  const skill = readFileSync(join(repoRoot, 'skills/deliberate/SKILL.md'), 'utf8');
   assert.match(skill, /LAUNCHER init prompt/, 'init orchestration fetches the method via `init prompt`');
   assert.match(skill, /Initiator/, 'names the Initiator role');
 });
 
 test('init curates durable project-external evidence and welcomes internal systems', () => {
-  const skill = readFileSync(join(repoRoot, 'skill/SKILL.md'), 'utf8').replace(/\s+/g, ' ');
+  const skill = readFileSync(join(repoRoot, 'skills/deliberate/SKILL.md'), 'utf8').replace(/\s+/g, ' ');
   const instructions = readFileSync(join(repoRoot, 'roles/initiator/init/instructions.md'), 'utf8').replace(/\s+/g, ' ');
   for (const text of [skill, instructions]) {
     assert.match(text, /internal\/private|internal resources/i, 'sources outside the folder are not misrepresented as organization-external');
@@ -132,48 +117,8 @@ test('`deliberate init` sets up the CURRENT folder: context under deliberate/con
   rmSync(repo, { recursive: true, force: true });
 });
 
-test('`deliberate install` installs a working /deliberate into ~/.copilot/skills with the engine baked in', () => {
-  const fakeHome = mkdtempSync(join(tmpdir(), 'dlb-home-'));
-  const out = runIn(repoRoot, { HOME: fakeHome, USERPROFILE: fakeHome }, 'install');
-  const dest = join(fakeHome, '.copilot', 'skills', 'deliberate');
-  assert.match(out, /installed the \/deliberate skill/i);
-  assert.ok(existsSync(join(dest, 'SKILL.md')), 'SKILL.md copied');
-  assert.ok(existsSync(join(dest, 'scripts', 'deliberate.mjs')), 'launcher copied');
-  // The engine path is baked so the global skill points back at this checkout.
-  const eng = JSON.parse(readFileSync(join(dest, 'scripts', 'engine.json'), 'utf8')).engine;
-  assert.equal(eng, cli, 'engine.json points at this checkout');
-  // The SKILL.md launcher reference was rewritten to the absolute installed path.
-  assert.match(readFileSync(join(dest, 'SKILL.md'), 'utf8'), new RegExp(dest.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '/scripts/deliberate.mjs'), 'launcher path is absolute in the installed skill');
-
-  // The installed launcher resolves the engine (via engine.json) and forwards args
-  // from any cwd — here, a fresh repo gets initialized by the installed skill's launcher.
-  const userRepo = mkdtempSync(join(tmpdir(), 'dlb-viaskill-'));
-  const launcher = join(dest, 'scripts', 'deliberate.mjs');
-  const initOut = execFileSync(process.execPath, [launcher, 'init', 'ViaSkill'], { cwd: userRepo, env: process.env, encoding: 'utf8' });
-  assert.match(initOut, /initialized/i, 'the installed launcher runs the engine');
-  assert.ok(existsSync(join(userRepo, 'deliberate', 'context', 'product.md')), 'launcher forwarded cwd → context created in the user repo');
-  rmSync(userRepo, { recursive: true, force: true });
-  rmSync(fakeHome, { recursive: true, force: true });
-});
-
-test('`deliberate install --project <dir>` installs into a repo\'s .github/skills (not global)', () => {
-  const target = mkdtempSync(join(tmpdir(), 'dlb-target-'));
-  const out = runIn(repoRoot, {}, 'install', '--project', target).replace(/\x1B\[[0-9;]*m/g, '');
-  const dest = join(target, '.github', 'skills', 'deliberate');
-  assert.match(out, /installed the \/deliberate skill \(project\)/i);
-  assert.ok(existsSync(join(dest, 'SKILL.md')) && existsSync(join(dest, 'scripts', 'deliberate.mjs')), 'skill written under <repo>/.github/skills/deliberate');
-  assert.equal(JSON.parse(readFileSync(join(dest, 'scripts', 'engine.json'), 'utf8')).engine, cli, 'engine.json points at this checkout');
-  // Project install keeps the launcher reference RELATIVE (Copilot runs from that repo root).
-  assert.match(readFileSync(join(dest, 'SKILL.md'), 'utf8'), /node \.github\/skills\/deliberate\/scripts\/deliberate\.mjs/, 'launcher path stays repo-relative');
-  // The installed launcher runs the engine against that repo.
-  const initOut = execFileSync(process.execPath, [join(dest, 'scripts', 'deliberate.mjs'), 'init', 'Target'], { cwd: target, env: process.env, encoding: 'utf8' });
-  assert.match(initOut, /initialized/i);
-  assert.ok(existsSync(join(target, 'deliberate', 'context', 'product.md')), 'the repo-scoped skill sets up that repo');
-  rmSync(target, { recursive: true, force: true });
-});
-
 test('SKILL.md documents the one-pager: the `case` flow generates it, and `address` keeps both docs consistent', () => {
-  const body = readFileSync(join(repoRoot, 'skill/SKILL.md'), 'utf8');
+  const body = readFileSync(join(repoRoot, 'skills/deliberate/SKILL.md'), 'utf8');
   // The `case` flow writes it as part of every case (not a re-triggerable stage).
   assert.match(body, /one-pager/i, 'SKILL.md documents the one-pager');
   assert.match(body, /case one-pager prompt/, 'documents the one-pager prompt step');
@@ -187,12 +132,14 @@ test('SKILL.md documents the one-pager: the `case` flow generates it, and `addre
   assert.match(address, /regenerate/i, 'address regenerates the one-pager after a material analysis change');
 });
 
-test('SKILL.md documents the `brief` command: the Briefer flow, the 3-month window, and sourced filtering', () => {
-  const body = readFileSync(join(repoRoot, 'skill/SKILL.md'), 'utf8');
-  assert.match(body, /##\s+`brief`/, 'there is a brief section');
+test('SKILL.md documents the `brief` command: the Briefer flow, overridable 90-day window, and sourced filtering', () => {
+  const body = readFileSync(join(repoRoot, 'skills/deliberate/SKILL.md'), 'utf8');
+  assert.match(body, /##\s+`brief \[period\]`/, 'there is a brief section');
   assert.match(body, /Briefer/, 'names the Briefer role');
   assert.match(body, /since the last brief/i, 'frames the window as since the last brief');
-  assert.match(body, /3 months/, 'caps the look-back at 3 months');
+  assert.match(body, /90 days/, 'caps the default look-back at 90 days');
+  assert.match(body, /natural-language override/i, 'accepts a period override in the user prompt');
+  assert.match(body, /--period-start.*--period-end/i, 'carries the selected period through the launcher');
   assert.match(body, /brief prompt/, 'documents the brief prompt step');
   assert.match(body, /brief save/, 'documents the brief save step');
   assert.match(body, /source link|Source/, 'requires source links for findings');
@@ -201,7 +148,7 @@ test('SKILL.md documents the `brief` command: the Briefer flow, the 3-month wind
 });
 
 test('SKILL.md `readout` grounds all analysis in one completed, overridable reporting period', () => {
-  const body = readFileSync(join(repoRoot, 'skill/SKILL.md'), 'utf8');
+  const body = readFileSync(join(repoRoot, 'skills/deliberate/SKILL.md'), 'utf8');
   const readout = body.slice(body.indexOf('## `readout [period]`'), body.indexOf('## `matchup`'));
   assert.match(readout, /previous completed Monday–Sunday calendar week/i, 'defaults to a completed calendar week');
   assert.match(readout, /natural-language override.*for June.*for Q2/is, 'accepts natural-language completed-period overrides');
@@ -213,7 +160,7 @@ test('SKILL.md `readout` grounds all analysis in one completed, overridable repo
 });
 
 test('SKILL.md requires workflow-specific, default-positive follow-up CTAs', () => {
-  const body = readFileSync(join(repoRoot, 'skill/SKILL.md'), 'utf8');
+  const body = readFileSync(join(repoRoot, 'skills/deliberate/SKILL.md'), 'utf8');
   const routing = body.slice(body.indexOf('Every substantive workflow'), body.indexOf('## `init`'));
   for (const next of ['`init` → run the first brief', 'product/market `case` → build the appropriate prototype', 'strategy/platform `case` → review the completed decision record in Sonorance', '`prototype` → open it for review', '`source add|remove` → refresh affected project context', '`address` → review the resolved changes in Diff mode'])
     assert.match(routing, new RegExp(next.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `documents the ${next} handoff`);
@@ -226,7 +173,7 @@ test('SKILL.md requires workflow-specific, default-positive follow-up CTAs', () 
   assert.doesNotMatch(init, /Run (?:the first |a )?case now\?/i, 'init does not bypass the hero Brief by recommending a case');
 
   const workflows = [
-    ['brief', body.slice(body.indexOf('## `brief`'), body.indexOf('## `readout [period]`'))],
+    ['brief', body.slice(body.indexOf('## `brief [period]`'), body.indexOf('## `readout [period]`'))],
     ['readout', body.slice(body.indexOf('## `readout [period]`'), body.indexOf('## `matchup`'))],
     ['matchup', body.slice(body.indexOf('## `matchup`'), body.indexOf('## `case list`'))],
   ];
@@ -244,7 +191,7 @@ test('SKILL.md requires workflow-specific, default-positive follow-up CTAs', () 
 });
 
 test('SKILL.md opens produced artifacts directly in Sonorance', () => {
-  const body = readFileSync(join(repoRoot, 'skill/SKILL.md'), 'utf8');
+  const body = readFileSync(join(repoRoot, 'skills/deliberate/SKILL.md'), 'utf8');
   for (const path of ['deliberate/cases/', 'deliberate/briefs/', 'deliberate/readouts/', 'deliberate/matchups/']) {
     assert.match(body, new RegExp(`serve --open --file "[^"]*${path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`), `review guidance targets ${path}`);
   }
@@ -252,7 +199,7 @@ test('SKILL.md opens produced artifacts directly in Sonorance', () => {
 });
 
 test('SKILL.md preserves the prototype quality contract without delegating it to generic brevity', () => {
-  const body = readFileSync(join(repoRoot, 'skill/SKILL.md'), 'utf8');
+  const body = readFileSync(join(repoRoot, 'skills/deliberate/SKILL.md'), 'utf8');
   const prototype = body.slice(body.indexOf('## `prototype <id>`'), body.indexOf('## `brief`'));
   assert.match(prototype, /every shaped journey step in order/);
   assert.match(prototype, /real product conventions/);
@@ -311,7 +258,7 @@ test('init records one durable readout period contract, never snapshot baselines
 });
 
 test('SKILL.md `init` reads project files directly and discovers only durable project-external sources section by section', () => {
-  const skill = readFileSync(join(repoRoot, 'skill/SKILL.md'), 'utf8');
+  const skill = readFileSync(join(repoRoot, 'skills/deliberate/SKILL.md'), 'utf8');
   const step2 = skill.slice(skill.indexOf('## `init`'), skill.indexOf('## `case <idea>`'));
   assert.match(step2, /read every relevant file inside the current project directly as automatic context/i);
   assert.match(step2, /never propose, confirm, or persist an in-project file or folder as a source/i);

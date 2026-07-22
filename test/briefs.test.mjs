@@ -10,7 +10,7 @@ process.env.SONORANCE_HOME = home;
 process.env.DELIBERATE_MODEL = 'stub';
 
 const { openVault } = await import('sonorance/plugins/deliberate/vault.mjs');
-const { briefWindow, briefPrompt, persistBrief, BRIEF_WINDOW_MONTHS } = await import('../src/engine/briefs.mjs');
+const { briefWindow, briefPrompt, persistBrief, BRIEF_WINDOW_DAYS } = await import('../src/engine/briefs.mjs');
 const { createProjectWithId } = await import('./project-fixture.mjs');
 
 let store, pid;
@@ -18,14 +18,13 @@ before(() => { store = openVault(); pid = createProjectWithId(store, 'bp', 'Brie
 after(() => { store.close(); rmSync(home, { recursive: true, force: true }); });
 
 const DAY = 86400000;
-const monthsBefore = (ts, n) => { const d = new Date(ts); d.setMonth(d.getMonth() - n); return d.getTime(); };
 
-test('briefWindow: a first-ever brief looks back exactly 3 months (the cap)', () => {
+test('briefWindow: a first-ever brief looks back exactly 90 days (the cap)', () => {
   const now = Date.now();
   const w = briefWindow(store, pid, now);
   assert.equal(w.firstEver, true, 'no prior brief → firstEver');
   assert.equal(w.end, now, 'the window ends now');
-  assert.equal(w.start, monthsBefore(now, BRIEF_WINDOW_MONTHS), 'starts exactly 3 calendar months back');
+  assert.equal(w.start, now - BRIEF_WINDOW_DAYS * DAY, 'starts exactly 90 days back');
 });
 
 test('briefWindow: with a RECENT previous brief, the window starts where the last one ended', () => {
@@ -34,18 +33,26 @@ test('briefWindow: with a RECENT previous brief, the window starts where the las
   store.createBrief(pid, { period_start: now - 40 * DAY, period_end: lastEnd, body: '# Brief\n\n* x' }, lastEnd);
   const w = briefWindow(store, pid, now);
   assert.equal(w.firstEver, false, 'a prior brief exists');
-  assert.equal(w.capped, false, 'the prior brief is within 3 months → not capped');
+  assert.equal(w.capped, false, 'the prior brief is within 90 days → not capped');
   assert.equal(w.start, lastEnd, 'the window picks up exactly where the last brief ended');
 });
 
-test('briefWindow: a STALE previous brief (older than 3 months) is capped back to 3 months', () => {
+test('briefWindow: a STALE previous brief is capped back to 90 days', () => {
   const p2 = createProjectWithId(store, 'bp2', 'Stale').id;
   const now = Date.now();
-  const staleEnd = monthsBefore(now, 5);         // last brief ended 5 months ago
-  store.createBrief(p2, { period_start: monthsBefore(now, 6), period_end: staleEnd, body: '# Brief\n\n* old' }, staleEnd);
+  const staleEnd = now - 150 * DAY;
+  store.createBrief(p2, { period_start: now - 180 * DAY, period_end: staleEnd, body: '# Brief\n\n* old' }, staleEnd);
   const w = briefWindow(store, p2, now);
-  assert.equal(w.capped, true, 'older than 3 months → capped');
-  assert.equal(w.start, monthsBefore(now, BRIEF_WINDOW_MONTHS), 'clamped to the 3-month floor, not all the way back to the stale brief');
+  assert.equal(w.capped, true, 'older than 90 days → capped');
+  assert.equal(w.start, now - BRIEF_WINDOW_DAYS * DAY, 'clamped to the 90-day floor, not all the way back to the stale brief');
+});
+
+test('briefWindow: an explicit date range overrides the default cadence', () => {
+  const at = Date.UTC(2026, 6, 14, 12);
+  const w = briefWindow(store, pid, at, { periodStart: '2026-06-01', periodEnd: '2026-06-30' });
+  assert.equal(w.custom, true);
+  assert.equal(w.start, Date.UTC(2026, 5, 1));
+  assert.equal(w.end, Date.UTC(2026, 6, 1) - 1);
 });
 
 test('briefPrompt: a later brief is told it is NOT the first and anchored to the previous end', async () => {
@@ -66,6 +73,19 @@ test('briefPrompt: a FIRST-ever brief is explicitly told it is the first', async
   store.writeContext(p, '# FirstProj\n\n## Competitors\n\n- Acme — a rival.\n');
   const { user } = await briefPrompt(store, store.getProject(p));
   assert.match(user, /FIRST brief for this project — there is no previous brief/, 'the first brief is labelled first');
+});
+
+test('briefPrompt: a user-requested period becomes the strict reporting window', async () => {
+  const p = createProjectWithId(store, 'bp-custom', 'CustomProj').id;
+  const at = Date.UTC(2026, 6, 14, 12);
+  const { user } = await briefPrompt(store, store.getProject(p), {
+    at,
+    periodStart: '2026-06-01',
+    periodEnd: '2026-06-30',
+  });
+  assert.match(user, /user-requested period/);
+  assert.match(user, /period_start: June 1, 2026/);
+  assert.match(user, /period_end: June 30, 2026/);
 });
 
 test('briefPrompt: a later brief injects the previous brief as read-only prior context', async () => {
@@ -121,6 +141,18 @@ test('persistBrief: cleans the artifact, records the window, and writes brief.md
   const rec = store.readBriefRecord(brief.id);
   assert.match(rec.text, /A real thing shipped/, 'the real content is kept');
   assert.doesNotMatch(rec.text, /This completes the task/, 'internal/run meta commentary is scrubbed');
+});
+
+test('persistBrief: stores the same explicit period used to generate the prompt', async () => {
+  const p = createProjectWithId(store, 'bp-custom-save', 'CustomSave').id;
+  const at = Date.UTC(2026, 6, 14, 12);
+  const { brief } = await persistBrief(store, store.getProject(p), '# Brief\n\n* selected period', {
+    at,
+    periodStart: '2026-06-01',
+    periodEnd: '2026-06-30',
+  });
+  assert.equal(brief.period_start, Date.UTC(2026, 5, 1));
+  assert.equal(brief.period_end, Date.UTC(2026, 6, 1) - 1);
 });
 
 test('persistBrief unwraps hard-wrapped prose so the saved file isn\'t artificially broken into lines', async () => {

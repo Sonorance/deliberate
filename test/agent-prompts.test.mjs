@@ -183,7 +183,7 @@ test('all three project context files reach every stage prompt', async () => {
   assert.match(frame.system, /RuntimeCo/, 'the canonical ecosystem context reaches the frame prompt');
 });
 
-test('case lenses select distinct concise prompts, one-pagers, and prototype eligibility', async () => {
+test('Case lenses select distinct concise prompts, one-pagers, and prototype eligibility', async () => {
   const scenarios = [
     ['market', 'Reposition for enterprise teams', /## Recommended market shape/, /# _?market decision_?/, /## Audience[\s\S]*## Commitment[\s\S]*## Proof[\s\S]*## Sequence[\s\S]*## Measure[\s\S]*## Revisit/, true],
     ['strategy', 'Choose the next market to enter', /## Strategic options/, /# _?strategy decision_?/, /## Direction[\s\S]*## Commitments[\s\S]*## Sequence[\s\S]*## Proof[\s\S]*## Revisit/, false],

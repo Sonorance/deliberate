@@ -1,0 +1,23 @@
+{
+  "name": "deliberate",
+  "owner": {
+    "name": "Sonorance"
+  },
+  "metadata": {
+    "description": "Files-first product workflows inside your agent",
+    "version": "0.3.2"
+  },
+  "plugins": [
+    {
+      "name": "deliberate",
+      "description": "Analyze grounded product decisions, monitor the market, read product evidence, and keep every result as reviewable files.",
+      "version": "0.3.2",
+      "author": {
+        "name": "Sonorance"
+      },
+      "source": ".",
+      "category": "productivity",
+      "homepage": "https://deliberate.md"
+    }
+  ]
+}

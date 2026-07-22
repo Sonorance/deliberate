@@ -19,7 +19,7 @@
 // `<idea>` = free text / URL / file path. Kept sorted alphabetically by command.
 export const SKILL_COMMANDS = [
   ['/deliberate address', 'Work through the reader’s in-record comments in the open app — answer or edit, then resolve (optional).'],
-  ['/deliberate brief', 'Produce a landscape brief — competitive + market changes since the last brief (≤ 3 months).'],
+  ['/deliberate brief [period]', 'Produce a landscape brief — the previous 90 days on first run, then changes since the last brief, or a natural-language period override.'],
   ['/deliberate brief list', 'List the project’s briefs (newest first).'],
   ['/deliberate case <idea>', 'Analyze any consequential idea or signal; the host selects the relevant product, market, strategy, or platform methods, then completes frame → shape → launch, score, and one-pager.'],
   ['/deliberate case <id> prototype', 'Build a testable prototype for a completed product or market case.'],
@@ -40,7 +40,7 @@ export const SKILL_COMMANDS = [
 // Exported for generated documentation and coverage checks.
 export const SKILL_FOLLOW_UPS = [
   ['/deliberate address', 'After resolving comments or edits, ask to review the resolved changes in Sonorance Diff mode; default to opening the revised artifact.'],
-  ['/deliberate brief', 'When case-worthy signals exist, ask how to follow up with **Open for review + run cases** (default), **Open for review only**, and **Other**. The default opens the saved brief in Sonorance and runs the selected case analyses in parallel. With no case-worthy signal, offer to open the brief for review without manufacturing a case.'],
+  ['/deliberate brief [period]', 'When case-worthy signals exist, ask how to follow up with **Open for review + run cases** (default), **Open for review only**, and **Other**. The default opens the saved brief in Sonorance and runs the selected case analyses in parallel. With no case-worthy signal, offer to open the brief for review without manufacturing a case.'],
   ['/deliberate brief list', 'Ask which listed brief to open in Sonorance when the user has not already named one; do not infer a case analysis from a list command.'],
   ['/deliberate case <idea>', 'For a completed product or market case, ask to build the eligible prototype by default. For a strategy or platform case, ask to open the completed decision record in Sonorance by default.'],
   ['/deliberate case <id> prototype', 'Ask to open the case record and its prototype in Sonorance for review; default to opening it.'],
@@ -61,8 +61,8 @@ export const SKILL_FOLLOW_UPS = [
 // their parent (`case`, `brief`, `source`, `comment`). Kept sorted alphabetically by invocation.
 export const CLI_COMMANDS = [
   ['brief list', 'List the project’s briefs (newest first; delete one by removing its folder).'],
-  ['brief prompt', 'Print the Briefer prompt (reporting window + context + template) for the host to fulfill.'],
-  ['brief save [--file <path>]', 'Persist a produced brief into deliberate/briefs/<date>/brief.md; prints its id.'],
+  ['brief prompt [--period-start <YYYY-MM-DD> --period-end <YYYY-MM-DD>]', 'Print the Briefer prompt for the default 90-day/since-last window or an explicit period.'],
+  ['brief save [--file <path>] [--period-start <YYYY-MM-DD> --period-end <YYYY-MM-DD>]', 'Persist a produced brief and its selected period into deliberate/briefs/<date>/brief.md; prints its id.'],
   ['case "<idea>" [--lens <lens>]', 'Create a case and print its id; --lens is selected by the host (product, market, strategy, or platform).'],
   ['case analysis prompt <id> [--note <text>]', 'Print the next lens-aware analysis stage’s prompt (frame → shape → launch) for the specified case.'],
   ['case analysis save <id> [--file <path>]', 'Persist a produced analysis stage into the specified case’s analysis.md and advance it.'],
@@ -81,7 +81,6 @@ export const CLI_COMMANDS = [
   ['help [--skill]', 'Print the engine CLI grammar; --skill prints the current user-facing /deliberate grammar.'],
   ['init', 'Set up the current folder as a project (deliberate/ + context); name = folder.'],
   ['init prompt', 'Print the Initiator prompt (method + the context scaffolds) for the host to fill the project context.'],
-  ['install [--here | --project <dir>]', 'Install the /deliberate skill (global, or into a repo’s .github/skills).'],
   ['matchup list', 'List the project’s matchups (one per rival; newest first; delete one by removing its folder).'],
   ['matchup prompt <competitor>', 'Print the Scout prompt (context + the rival + template) for the host to fulfill.'],
   ['matchup save <competitor> [--file <path>]', 'Persist a produced matchup into deliberate/matchups/<slug>/matchup.md (refresh-in-place); prints its id.'],
@@ -89,7 +88,7 @@ export const CLI_COMMANDS = [
   ['readout prompt [--period-start <YYYY-MM-DD> --period-end <YYYY-MM-DD>] [--timezone <IANA>]', 'Print the Reporter prompt for one completed reporting period; defaults to the previous calendar week in the supplied timezone (UTC when omitted).'],
   ['readout chart --spec <json> --output <svg>', 'Render one validated key-metric time series as a deterministic, accessible SVG trend chart.'],
   ['readout save [--file <path> | --bundle <dir>] [--period-start <YYYY-MM-DD> --period-end <YYYY-MM-DD>] [--timezone <IANA>]', 'Persist a product readout only when its Period line matches the selected completed period; for a bundle, also persist referenced charts/ SVG sidecars.'],
-  ['serve [--open] [--port <n>] [--file <path>]', 'Start the local app — the web UI over your vault (--open launches the browser, optionally at a project-relative Markdown file).'],
+  ['serve [--open] [--port <n>] [--file <path>]', 'Start the local app on an available OS-assigned port unless --port is supplied (--open launches the browser, optionally at a project-relative Markdown file).'],
   ['source [list | add <location> ["<description>"] [--section <section>] | remove <location>]', 'List / manage categorized, durable context sources outside the current project folder, including internal systems and public resources (recorded in .sonorance/sources.md; the host reads each in-harness).'],
 ];
 
