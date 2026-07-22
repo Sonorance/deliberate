@@ -39,14 +39,14 @@ test('a project is a folder of files (no database)', () => {
   assert.ok(!existsSync(join(home, 'deliberate.db')) && !existsSync(join(home, 'arborra.db')), 'no sqlite file anywhere');
 });
 
-test('cases list newest-first by default', () => {
+test('Cases list newest-first by default', () => {
   const a = store.createCase('p', 'first', '');
   const b = store.createCase('p', 'second', '');
   store.setCase(a.id, { score: 2.1 }); store.setCase(b.id, { score: 3.8 });
   assert.deepEqual(store.listCases('p').map(s => s.title), ['second', 'first']);
 });
 
-test('case folders are date-prefixed; ids stay globally unique; the decision lens is durable', () => {
+test('Case folders are date-prefixed; ids stay globally unique; the decision lens is durable', () => {
   createProjectWithId(store, 'q', 'Q');
   const s1 = store.createCase('q', 'Cross project case', 'body text', { lens: 'strategy' });
   assert.notEqual(store.listCases('p')[0].id, s1.id, 'internal ids do not collide across projects');

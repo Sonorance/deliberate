@@ -8,6 +8,7 @@ npm-debug.log*
 
 # Desktop app build output (electron-builder)
 dist-app/
+dist/
 
 # Local env / secrets — never commit
 .env

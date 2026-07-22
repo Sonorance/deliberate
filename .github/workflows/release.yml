@@ -32,6 +32,7 @@ jobs:
       sha: ${{ steps.release.outputs.sha }}
       tag: ${{ steps.release.outputs.tag }}
       tarball: ${{ steps.package.outputs.tarball }}
+      plugin_tarball: ${{ steps.plugin.outputs.tarball }}
       version: ${{ steps.release.outputs.version }}
     steps:
       - uses: actions/checkout@v6
@@ -77,10 +78,26 @@ jobs:
           test -f "$tarball"
           node scripts/verify-tarball.mjs "$tarball"
           echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
+      - name: Build and verify self-contained plugin
+        id: plugin
+        run: |
+          set -euo pipefail
+          npm run build:plugin
+          tarball="deliberate-plugin-v${{ steps.release.outputs.version }}.tgz"
+          tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner -czf "$tarball" -C dist deliberate-plugin
+          test -f "$tarball"
+          node scripts/verify-plugin.mjs dist/deliberate-plugin --self-contained
+          echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v7
         with:
           name: npm-package
           path: ${{ steps.package.outputs.tarball }}
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@v7
+        with:
+          name: plugin-package
+          path: ${{ steps.plugin.outputs.tarball }}
           if-no-files-found: error
           retention-days: 7
 
@@ -123,6 +140,9 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: plugin-package
       - name: Create or resume GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -130,10 +150,34 @@ jobs:
         run: |
           set -euo pipefail
           tag="v${{ needs.build.outputs.version }}"
+          tag_type=$(gh api "repos/$GH_REPO/git/ref/tags/$tag" --jq .object.type 2>/dev/null || true)
+          if [ -n "$tag_type" ]; then
+            tag_sha=$(gh api "repos/$GH_REPO/git/ref/tags/$tag" --jq .object.sha)
+            if [ "$tag_type" = "tag" ]; then
+              tag_sha=$(gh api "repos/$GH_REPO/git/tags/$tag_sha" --jq .object.sha)
+            fi
+            if [ "$tag_sha" != "${{ needs.build.outputs.sha }}" ]; then
+              echo "::error::$tag points to $tag_sha, not ${{ needs.build.outputs.sha }}."
+              exit 1
+            fi
+          fi
           if gh release view "$tag" >/dev/null 2>&1; then
             echo "$tag already has a GitHub release; resuming."
-            exit 0
+          else
+            args=()
+            if [ "${{ needs.build.outputs.prerelease }}" = "true" ]; then args+=(--prerelease); else args+=(--latest); fi
+            gh release create "$tag" --target "${{ needs.build.outputs.sha }}" --title "Deliberate ${{ needs.build.outputs.version }}" --generate-notes "${args[@]}"
           fi
-          args=()
-          if [ "${{ needs.build.outputs.prerelease }}" = "true" ]; then args+=(--prerelease); else args+=(--latest); fi
-          gh release create "$tag" --target "${{ needs.build.outputs.sha }}" --title "Deliberate ${{ needs.build.outputs.version }}" --generate-notes "${args[@]}"
+          asset="${{ needs.build.outputs.plugin_tarball }}"
+          if gh release view "$tag" --json assets --jq '.assets[].name' | grep -Fxq "$asset"; then
+            existing=$(mktemp -d)
+            trap 'rm -rf "$existing"' EXIT
+            gh release download "$tag" --pattern "$asset" --dir "$existing"
+            if ! cmp -s "$asset" "$existing/$asset"; then
+              echo "::error::$tag already has a different $asset."
+              exit 1
+            fi
+            echo "$tag already has the verified plugin artifact; resuming."
+          else
+            gh release upload "$tag" "$asset"
+          fi

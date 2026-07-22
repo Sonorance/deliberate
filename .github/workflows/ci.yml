@@ -24,4 +24,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      - run: npm run verify:plugin
+      - run: npm run build:plugin
       - run: npm pack --dry-run

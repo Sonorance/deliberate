@@ -5,7 +5,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import yaml from 'js-yaml';
 
-// The installed /deliberate skill (skill/SKILL.md) is a first-class product surface: it is what a
+// The installed /deliberate skill (skills/deliberate/SKILL.md) is a first-class product surface: it is what a
 // harness reads to drive Deliberate. It MUST NOT drift from the evolving grammar (the command
 // registry in commands.mjs + the filesystem layout in layout.mjs) or from the product definition.
 // These tests hold SKILL.md against those single sources of truth so a grammar/positioning change
@@ -14,7 +14,7 @@ import yaml from 'js-yaml';
 process.env.SONORANCE_HOME = process.env.SONORANCE_HOME || '/tmp/son-skill-currency-test';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
-const raw = readFileSync(join(repoRoot, 'skill/SKILL.md'), 'utf8');
+const raw = readFileSync(join(repoRoot, 'skills/deliberate/SKILL.md'), 'utf8');
 const fmMatch = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
 assert.ok(fmMatch, 'SKILL.md has a --- frontmatter block');
 const frontmatter = yaml.load(fmMatch[1]);

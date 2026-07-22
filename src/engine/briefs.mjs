@@ -5,9 +5,10 @@
  * LLM-free: it computes the reporting window, assembles the producer prompt, and persists
  * the produced artifact as `deliberate/briefs/<YYYY-MM-DD>/brief.md`.
  *
- * The window is *since the last brief*, capped at 3 months: `end = now`,
- * `start = max(lastBriefEnd, now − 3 months)` — so a first-ever brief (or a stale one)
- * gets a full 3-month window, and a fresh cadence picks up exactly where the last left off.
+ * The window is *since the last brief*, capped at 90 days: `end = now`,
+ * `start = max(lastBriefEnd, now − 90 days)` — so a first-ever brief (or a stale one)
+ * gets a full 90-day window, and a fresh cadence picks up exactly where the last left off.
+ * The user may override that cadence with an explicit date range.
  */
 import { agentConfig } from './roles.mjs';
 import { read, loadBody, loadSkills } from './prompts.mjs';
@@ -15,21 +16,43 @@ import { projectContext, cleanArtifact } from './pipeline.mjs';
 import { unwrapProse } from 'sonorance/plugins/deliberate/markdown.mjs';
 
 export const BRIEF_STAGE = 'brief';
-export const BRIEF_WINDOW_MONTHS = 3;
+export const BRIEF_WINDOW_DAYS = 90;
+const DAY = 86400000;
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-// Subtract N calendar months from a timestamp (the "not more than 3 months" floor).
-function monthsBefore(ts, n) { const d = new Date(ts); d.setMonth(d.getMonth() - n); return d.getTime(); }
+function parseDate(value, label) {
+  if (!DATE_PATTERN.test(String(value || ''))) throw new Error(`${label} must be YYYY-MM-DD`);
+  const [year, month, day] = value.split('-').map(Number);
+  const timestamp = Date.UTC(year, month - 1, day);
+  const parsed = new Date(timestamp);
+  if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day) {
+    throw new Error(`${label} must be a valid calendar date`);
+  }
+  return timestamp;
+}
 
 // The reporting window for the NEXT brief of this project. `end` = now; `start` = the
-// previous brief's period_end, but never earlier than 3 months ago (so a first brief or a
-// stale one is capped at a 3-month look-back).
-export function briefWindow(store, pid, at = Date.now()) {
-  const floor = monthsBefore(at, BRIEF_WINDOW_MONTHS);
+// previous brief's period_end, but never earlier than 90 days ago. An explicit range
+// overrides that cadence while retaining prior briefs as read-only context.
+export function briefWindow(store, pid, at = Date.now(), { periodStart, periodEnd } = {}) {
+  if (!!periodStart !== !!periodEnd) throw new Error('--period-start and --period-end must be provided together');
+  const floor = at - BRIEF_WINDOW_DAYS * DAY;
   const last = store.lastBriefEnd(pid);
   const firstEver = last == null;
-  const capped = !firstEver && last < floor;        // previous brief older than 3 months → floor wins
+  const custom = !!periodStart;
+  if (custom) {
+    const start = parseDate(periodStart, '--period-start');
+    const endDay = parseDate(periodEnd, '--period-end');
+    const now = new Date(at);
+    const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    if (endDay > today) throw new Error('the brief period cannot end in the future');
+    const end = endDay === today ? at : endDay + DAY - 1;
+    if (start > end) throw new Error('--period-start must be on or before --period-end');
+    return { start, end, floor, firstEver, capped: false, last, custom };
+  }
+  const capped = !firstEver && last < floor;        // previous brief older than 90 days → floor wins
   const start = firstEver ? floor : Math.max(last, floor);
-  return { start, end: at, floor, firstEver, capped, last };
+  return { start, end: at, floor, firstEver, capped, last, custom };
 }
 
 const fmtDate = (ts) => new Date(ts).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
@@ -56,16 +79,19 @@ export function previousBriefBlock(store, pid) {
 // a tight window (e.g. one that happens to align with project creation) tempts the host to
 // narrate "this is the first brief", which is wrong when an earlier brief exists.
 function windowNote(win) {
-  if (win.firstEver) return 'This is the FIRST brief for this project — there is no previous brief. Report changes from the last 3 months (the cap).';
+  if (win.custom) return win.firstEver
+    ? 'This is the FIRST brief for this project — there is no previous brief. Report only the user-requested period.'
+    : 'This is NOT the first brief for this project. The user-requested period overrides the normal since-last-brief cadence.';
+  if (win.firstEver) return 'This is the FIRST brief for this project — there is no previous brief. Report changes from the last 90 days (the cap).';
   const prev = fmtDate(win.last);
-  if (win.capped) return `This is NOT the first brief for this project (the previous brief ended ${prev}, more than 3 months ago). Report changes from the last 3 months (the cap), not all the way back to it.`;
+  if (win.capped) return `This is NOT the first brief for this project (the previous brief ended ${prev}, more than 90 days ago). Report changes from the last 90 days (the cap), not all the way back to it.`;
   return `This is NOT the first brief for this project. The previous brief covered through ${prev}; report only changes since then, and no older.`;
 }
 
 // The exact producer prompt for a brief: grounding + the landscape-scan skill + the Briefer
 // instructions (system) and the reporting window + project competitors + output template
 // (user). The in-harness skill hands this to the host agent, which does the research itself.
-export async function briefPrompt(store, project, { at = Date.now() } = {}) {
+export async function briefPrompt(store, project, { at = Date.now(), periodStart, periodEnd } = {}) {
   const cfg = agentConfig(BRIEF_STAGE);
   const instruction = await loadBody(cfg.instructions);
   const agents = await read('AGENTS.md');
@@ -73,7 +99,7 @@ export async function briefPrompt(store, project, { at = Date.now() } = {}) {
   const skillsBlock = (await loadSkills(cfg.skills)) || '(none)';
   const pctx = projectContext(store, project);
   const system = `${agents}\n\n${pctx}\n\n## Skills\n${skillsBlock}\n\n## Stage instructions\n${instruction}`;
-  const win = briefWindow(store, project.id, at);
+  const win = briefWindow(store, project.id, at, { periodStart, periodEnd });
   const windowBlock = `## Reporting window (STRICT)\n${windowNote(win)}\n- period_start: ${fmtDate(win.start)}\n- period_end: ${fmtDate(win.end)}\nReport ONLY changes dated within this window. Set the brief's "Period:" line to exactly "${briefPeriodLabel(win.start, win.end)}" — just the dates, with no added parenthetical or commentary (never label it a "first brief" or tie it to project creation).`;
   const prevBlock = previousBriefBlock(store, project.id);
   const tpl = template
@@ -85,11 +111,11 @@ export async function briefPrompt(store, project, { at = Date.now() } = {}) {
 
 // Persist a produced brief artifact (LLM-free): clean it, compute the authoritative window,
 // and write it to a new dated brief folder. Shared by the engine and `deliberate brief save`.
-export async function persistBrief(store, project, rawArtifact, { at = Date.now() } = {}) {
+export async function persistBrief(store, project, rawArtifact, { at = Date.now(), periodStart, periodEnd } = {}) {
   const cfg = agentConfig(BRIEF_STAGE);
   const template = await read(cfg.templates.default);
   const body = unwrapProse(cleanArtifact(rawArtifact, template));
-  const win = briefWindow(store, project.id, at);
+  const win = briefWindow(store, project.id, at, { periodStart, periodEnd });
   const brief = store.createBrief(project.id, {
     period_start: win.start, period_end: win.end, model: cfg.model, body,
   }, at);

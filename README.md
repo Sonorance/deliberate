@@ -1,16 +1,19 @@
 # Deliberate
 
-Deliberate is a files-first product toolkit inside your coding agent. It turns any consequential idea or signal—from a feature to a change in strategy, marketing, or the platform and ecosystem—into grounded, reviewable product work in the current repository. The CLI builds prompts, validates role configuration, and persists artifacts; the host coding agent performs the reasoning.
+Deliberate is a files-first product toolkit inside your agent. It turns any consequential idea or signal—from a feature to a change in strategy, marketing, or the platform and ecosystem—into grounded, reviewable product work in the current repository. The CLI builds prompts, validates role configuration, and persists artifacts; the host agent performs the reasoning.
 
 ## Install and run
 
 Node.js 22.5 or newer is required.
 
 ```bash
-npx deliberate-cli install
+copilot plugin marketplace add Sonorance/deliberate
+copilot plugin install deliberate@deliberate
 ```
 
-Use `/deliberate` in a compatible coding-agent harness. A typical first journey establishes the product and market baseline before creating a case:
+This installs Deliberate as a GitHub Copilot plugin. The plugin supplies the `/deliberate` Agent Skill and resolves its matching runtime automatically. The release artifact also contains a self-contained runtime for local or managed distribution. The `deliberate-cli` npm package is the plugin's runtime and is not a separate installation path.
+
+An **agent harness** is the app or CLI where an agent runs, uses tools, and loads skills—for example, OpenAI Codex or GitHub Copilot. Deliberate's plugin currently targets GitHub Copilot. A typical first journey establishes the product and market baseline before creating a case:
 
 ```text
 /deliberate init
@@ -23,7 +26,9 @@ Use `/deliberate` in a compatible coding-agent harness. A typical first journey 
 /deliberate readout
 ```
 
-Run `deliberate serve --open` to review the generated Markdown, inspect diffs, and leave anchored comments in Sonorance. Add `--file "<project-relative-path>"` to open a specific case, brief, readout, or matchup immediately. Project-required commands operate only in an initialized current working directory, and `deliberate init` installs the project-local `/sonorance` review skill used by the UI's address-comments guidance.
+The first brief defaults to the previous 90 days. Add a natural-language period when needed, such as `/deliberate brief for the last 30 days`.
+
+Run `deliberate serve --open` to review the generated Markdown, inspect diffs, and leave anchored comments in Sonorance. The operating system selects an available port by default; use `--port <n>` only when you need a fixed one. Add `--file "<project-relative-path>"` to open a specific case, brief, readout, or matchup immediately. Project-required commands operate only in an initialized current working directory, and `deliberate init` installs the project-local `/sonorance` review skill used by the UI's address-comments guidance.
 
 ## Analyze any idea or signal
 
@@ -44,7 +49,6 @@ Every case follows `frame → shape → launch`, but each lens selects different
 deliberate help [--skill]
 deliberate init
 deliberate serve [--open] [--port <n>] [--file <path>]
-deliberate install [--here|--project <dir>]
 deliberate case "<idea>" [--lens <product|market|strategy|platform>]
 deliberate case list
 deliberate case analysis prompt|save <case-id> [--file <path> | --note <text>]
@@ -106,6 +110,8 @@ deliberate/
 src/engine/   prompt builders, persistence, role configuration, and commands
 src/cli/      the deliberate binary
 roles/        generic instructions, templates, and methods
-skill/        the shipped /deliberate skill and launcher
+skills/deliberate/  the plugin's /deliberate skill and launcher
+plugin.json   the Git-installable Copilot plugin manifest
+scripts/      plugin/package build and verification
 test/         offline engine, CLI, contract, and skill tests
 ```
