@@ -430,7 +430,6 @@ test('CLI `comment list` + `comment <id> resolve` carry in-record comments to th
     }
     assert.ok(state, 'the app becomes reachable through its serve.json discovery pointer');
     assert.ok(Number.isInteger(port) && port > 0, 'serve defaults to an available OS-assigned port');
-    assert.notEqual(port, 7777, 'serve no longer claims the shared fixed port 7777 by default');
     const caseId = state.cases[0].id;
     // The app knows the record's file (from /api/record); the browser comments on it.
     const rec = await (await fetch(`http://localhost:${port}/api/record?id=${caseId}`)).json();

@@ -331,8 +331,9 @@ export const cmds = {
     if (!p && existsSync(join(abs, 'deliberate'))) p = openProjectVault(store, abs);
     if (p) setLast(p.id);
     const { startAppServer } = await import('../engine/app-boot.mjs');
-    const port = opt('--port') ? +opt('--port') : undefined;
-    const { port: boundPort } = await startAppServer(Number.isFinite(port) ? { port } : {});
+    const requestedPort = opt('--port');
+    const port = requestedPort ? Number(requestedPort) : 0;
+    const { port: boundPort } = await startAppServer({ port: Number.isFinite(port) ? port : 0 });
     const url = buildLaunchUrl(`http://localhost:${boundPort}`, opt('--file'));
     // Record where this server is listening so `address`/`resolve` (and tools) reach THIS
     // server rather than guessing the default port. Cleared best-effort on exit.
