@@ -10,10 +10,12 @@ const paths = new Set(execFileSync('tar', ['-tzf', tarball], { encoding: 'utf8' 
   .split('\n')
   .filter((path) => path.startsWith('package/') && !path.endsWith('/'))
   .map((path) => path.slice('package/'.length)));
+const readPackedJson = (path) => JSON.parse(execFileSync('tar', ['-xOzf', tarball, `package/${path}`], { encoding: 'utf8' }));
 
 for (const required of [
   'AGENTS.md',
   'LICENSE',
+  'plugin.json',
   'README.md',
   'roles/skills/README.md',
   'roles/skills/prioritization.md',
@@ -27,5 +29,7 @@ for (const required of [
 for (const path of paths) {
   assert.doesNotMatch(path, /^(?:test\/|test-setup\.mjs|spec\/|\.github\/)/, `npm package includes ${path}`);
 }
+
+assert.equal(readPackedJson('plugin.json').version, readPackedJson('package.json').version, 'npm package and plugin versions differ');
 
 process.stdout.write(`Verified immutable release tarball with ${paths.size} files.\n`);

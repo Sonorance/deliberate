@@ -1,0 +1,20 @@
+{
+  "name": "deliberate",
+  "description": "Files-first product workflows for grounded cases, landscape briefs, product readouts, competitive matchups, prototypes, and reviewable decisions.",
+  "version": "0.3.1",
+  "author": {
+    "name": "Sonorance",
+    "url": "https://deliberate.md"
+  },
+  "homepage": "https://deliberate.md",
+  "repository": "https://github.com/Sonorance/deliberate",
+  "license": "Apache-2.0",
+  "keywords": [
+    "product-management",
+    "product-strategy",
+    "agent-skills",
+    "files-first"
+  ],
+  "category": "productivity",
+  "skills": "skill"
+}

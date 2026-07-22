@@ -7,10 +7,16 @@ Deliberate is a files-first product toolkit inside your agent. It turns any cons
 Node.js 22.5 or newer is required.
 
 ```bash
+copilot plugin install Sonorance/deliberate
+```
+
+This installs Deliberate as a GitHub Copilot plugin. The plugin supplies the `/deliberate` Agent Skill and resolves its matching runtime automatically. The release artifact also contains a self-contained runtime for local or managed distribution. If plugin installation is unavailable, the standalone Agent Skill installer remains supported:
+
+```bash
 npx deliberate-cli install
 ```
 
-An **agent harness** is the app or CLI where an agent runs, uses tools, and loads skills—for example, OpenAI Codex or GitHub Copilot. Deliberate's current installer targets GitHub Copilot CLI. A typical first journey establishes the product and market baseline before creating a case:
+An **agent harness** is the app or CLI where an agent runs, uses tools, and loads skills—for example, OpenAI Codex or GitHub Copilot. Deliberate's plugin currently targets GitHub Copilot. A typical first journey establishes the product and market baseline before creating a case:
 
 ```text
 /deliberate init
@@ -109,5 +115,7 @@ src/engine/   prompt builders, persistence, role configuration, and commands
 src/cli/      the deliberate binary
 roles/        generic instructions, templates, and methods
 skill/        the shipped /deliberate skill and launcher
+plugin.json   the Git-installable Copilot plugin manifest
+scripts/      plugin/package build and verification
 test/         offline engine, CLI, contract, and skill tests
 ```

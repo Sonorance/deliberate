@@ -142,8 +142,7 @@ test('`deliberate install` installs a working /deliberate into ~/.copilot/skills
   // The engine path is baked so the global skill points back at this checkout.
   const eng = JSON.parse(readFileSync(join(dest, 'scripts', 'engine.json'), 'utf8')).engine;
   assert.equal(eng, cli, 'engine.json points at this checkout');
-  // The SKILL.md launcher reference was rewritten to the absolute installed path.
-  assert.match(readFileSync(join(dest, 'SKILL.md'), 'utf8'), new RegExp(dest.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '/scripts/deliberate.mjs'), 'launcher path is absolute in the installed skill');
+  assert.match(readFileSync(join(dest, 'SKILL.md'), 'utf8'), /<skill-base-directory>\/scripts\/deliberate\.mjs/, 'launcher is resolved from the installed skill base');
 
   // The installed launcher resolves the engine (via engine.json) and forwards args
   // from any cwd — here, a fresh repo gets initialized by the installed skill's launcher.
@@ -163,8 +162,7 @@ test('`deliberate install --project <dir>` installs into a repo\'s .github/skill
   assert.match(out, /installed the \/deliberate skill \(project\)/i);
   assert.ok(existsSync(join(dest, 'SKILL.md')) && existsSync(join(dest, 'scripts', 'deliberate.mjs')), 'skill written under <repo>/.github/skills/deliberate');
   assert.equal(JSON.parse(readFileSync(join(dest, 'scripts', 'engine.json'), 'utf8')).engine, cli, 'engine.json points at this checkout');
-  // Project install keeps the launcher reference RELATIVE (Copilot runs from that repo root).
-  assert.match(readFileSync(join(dest, 'SKILL.md'), 'utf8'), /node \.github\/skills\/deliberate\/scripts\/deliberate\.mjs/, 'launcher path stays repo-relative');
+  assert.match(readFileSync(join(dest, 'SKILL.md'), 'utf8'), /<skill-base-directory>\/scripts\/deliberate\.mjs/, 'launcher is resolved from the project skill base');
   // The installed launcher runs the engine against that repo.
   const initOut = execFileSync(process.execPath, [join(dest, 'scripts', 'deliberate.mjs'), 'init', 'Target'], { cwd: target, env: process.env, encoding: 'utf8' });
   assert.match(initOut, /initialized/i);

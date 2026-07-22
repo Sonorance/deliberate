@@ -23,7 +23,10 @@
   "scripts": {
     "deliberate": "node src/cli/deliberate.mjs",
     "app": "node src/cli/deliberate.mjs serve --open",
-    "test": "node --test --test-force-exit --import ./test-setup.mjs"
+    "test": "node --test --test-force-exit --import ./test-setup.mjs",
+    "build:plugin": "node scripts/build-plugin.mjs",
+    "verify:plugin": "node scripts/verify-plugin.mjs .",
+    "version": "node scripts/sync-plugin-version.mjs"
   },
   "engines": {
     "node": ">=22.5.0"
@@ -38,6 +41,7 @@
     "src/cli",
     "roles",
     "skill",
+    "plugin.json",
     "AGENTS.md",
     "README.md",
     "LICENSE"

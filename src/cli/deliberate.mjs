@@ -135,8 +135,19 @@ const commentTarget = async () => {
 };
 // This checkout's version (for the serve pointer / stale-server detection). Best-effort.
 const pkgVersion = () => { try { return JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'package.json'), 'utf8')).version || '0'; } catch { return '0'; } };
+export const resolveSkillSource = (repoRoot) => {
+  const local = join(repoRoot, 'skill');
+  if (existsSync(local)) return local;
+  const pluginRoot = resolve(repoRoot, '..');
+  try {
+    const plugin = JSON.parse(readFileSync(join(pluginRoot, 'plugin.json'), 'utf8'));
+    const bundled = join(pluginRoot, plugin.skills || 'skill');
+    if (plugin.name === 'deliberate' && existsSync(bundled)) return bundled;
+  } catch {}
+  return null;
+};
 export const installEngineConfig = (repoRoot, engineFile, version = pkgVersion()) =>
-  existsSync(join(repoRoot, '.git'))
+  existsSync(join(repoRoot, '.git')) || resolveSkillSource(repoRoot) === join(resolve(repoRoot, '..'), 'skill')
     ? { engine: engineFile }
     : { package: 'deliberate-cli', version };
 
@@ -366,8 +377,8 @@ export const cmds = {
     // this repo's dev/git config). `install` copies it into the target harness's skills
     // dir — Copilot's `.github/skills/deliberate` (project) or `~/.copilot/skills/deliberate`
     // (global) today; the same copy targets `.claude/skills`, Cursor, … as those land.
-    const src = join(repoRoot, 'skill');
-    if (!existsSync(src)) return P(`skill source not found at ${src}`);
+    const src = resolveSkillSource(repoRoot);
+    if (!src) throw new Error(`skill source not found for ${repoRoot}`);
     const projectDir = opt('--project') || (A.includes('--here') ? process.cwd() : (target && !target.startsWith('--') ? target : null));
     const project = !!projectDir;
     const dest = project ? join(resolve(projectDir), '.github', 'skills', 'deliberate') : join(homedir(), '.copilot', 'skills', 'deliberate');
@@ -375,12 +386,6 @@ export const cmds = {
     cpSync(src, dest, { recursive: true });
     const engineConfig = installEngineConfig(repoRoot, engineFile);
     writeFileSync(join(dest, 'scripts', 'engine.json'), JSON.stringify(engineConfig, null, 2) + '\n');
-    // Global install: rewrite the launcher reference to the absolute installed path (cwd is an
-    // arbitrary repo). Project install: keep it relative — Copilot runs from that repo's root.
-    if (!project) {
-      const skillMd = join(dest, 'SKILL.md');
-      writeFileSync(skillMd, readFileSync(skillMd, 'utf8').replaceAll('.github/skills/deliberate/scripts/deliberate.mjs', join(dest, 'scripts', 'deliberate.mjs')));
-    }
     P(`${c.g}✓${c.x} installed the /deliberate skill ${c.d}(${project ? 'project' : 'global'})${c.x}`);
     P(`  ${c.d}${dest}${c.x}`);
     P(engineConfig.engine

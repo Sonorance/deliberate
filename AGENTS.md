@@ -1,6 +1,6 @@
 # Repository guidance for AI agents
 
-This repo implements **Deliberate** — a local, files-first product toolkit for product managers, founders, business development, marketing, and adjacent roles. It ships primarily as a **`/deliberate` skill** for agent harnesses; the host produces cases, briefs, product readouts, matchups, context, prototypes, and reviewable records in-session. Sonorance is the stable app/platform and agent-review workbench Deliberate runs on; Deliberate contributes capabilities additively and never replaces or rebrands it.
+This repo implements **Deliberate** — a local, files-first product toolkit for product managers, founders, business development, marketing, and adjacent roles. It ships as an **agent plugin whose canonical workflow payload is the `/deliberate` Agent Skill**; the plugin is the installation, discovery, and versioning envelope, while the skill remains the portable method and command contract. The host produces cases, briefs, product readouts, matchups, context, prototypes, and reviewable records in-session. Sonorance is the stable app/platform and agent-review workbench Deliberate runs on; Deliberate contributes capabilities additively and never replaces or rebrands it.
 
 ## Golden rules
 - **Ground every claim.** Each conclusion must trace to the case, the attached project-external sources, the three project-context files (`product.md`, `competitors.md`, `ecosystem.md`), or an explicit assumption labelled as such. Never invent demand, personas, competitors, or distribution channels.

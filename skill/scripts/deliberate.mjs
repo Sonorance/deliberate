@@ -1,44 +1,88 @@
 #!/usr/bin/env node
 /**
- * deliberate.mjs — launcher the skill shells into. Resolves the Deliberate engine
- * and forwards all args + stdio to it, so the SKILL.md never hard-codes an engine
- * path. Resolution order:
- *   1. $DELIBERATE_ENGINE (explicit override)
- *   2. ./engine.json  { "engine": "/abs/path/to/src/cli/deliberate.mjs" }  (written by `deliberate install`)
- *   3. ../../src/cli/deliberate.mjs  (in-repo dev: skill/scripts → repo root)
- * The spawned engine inherits cwd, so `init`/`case` act on the folder the user is in.
+ * Stable launcher for source, standalone-skill, thin-plugin, and bundled-plugin installs.
+ *
+ * Resolution order:
+ *   1. DELIBERATE_ENGINE
+ *   2. scripts/engine.json (standalone `deliberate install`)
+ *   3. ../../runtime/src/cli/deliberate.mjs (self-contained plugin)
+ *   4. ../../src/cli/deliberate.mjs (source checkout with dependencies installed)
+ *   5. pinned npx package from engine.json or ../../plugin.json (thin plugin)
  */
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-
-function enginePath() {
-  const env = process.env.DELIBERATE_ENGINE;
-  if (env && existsSync(env)) return env;
-  const cfg = join(here, 'engine.json');
-  if (existsSync(cfg)) { try { const e = JSON.parse(readFileSync(cfg, 'utf8')).engine; if (e && existsSync(e)) return e; } catch { /* ignore */ } }
-  return resolve(here, '../../src/cli/deliberate.mjs');
-}
-
-function launchTarget() {
-  const engine = enginePath();
-  if (existsSync(engine)) return { command: process.execPath, args: [engine] };
-  const cfg = join(here, 'engine.json');
-  if (existsSync(cfg)) {
-    try {
-      const { package: name, version } = JSON.parse(readFileSync(cfg, 'utf8'));
-      if (name === 'deliberate-cli' && version) {
-        return { command: process.platform === 'win32' ? 'npx.cmd' : 'npx', args: ['-y', `${name}@${version}`] };
-      }
-    } catch { /* handled by the error below */ }
+const readJson = (path) => {
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'));
+  } catch {
+    return {};
   }
-  console.error(`deliberate: engine not found at ${engine}. Set DELIBERATE_ENGINE or re-run \`npx deliberate-cli install\`.`);
-  process.exit(1);
+};
+
+export function resolveLaunchTarget({ baseDir = here, env = process.env } = {}) {
+  if (env.DELIBERATE_ENGINE && existsSync(env.DELIBERATE_ENGINE)) {
+    return { command: process.execPath, args: [env.DELIBERATE_ENGINE], source: 'DELIBERATE_ENGINE' };
+  }
+
+  const config = readJson(join(baseDir, 'engine.json'));
+  if (config.engine && existsSync(config.engine)) {
+    return { command: process.execPath, args: [config.engine], source: 'engine.json' };
+  }
+
+  const pluginRoot = resolve(baseDir, '..', '..');
+  const bundledEngine = join(pluginRoot, 'runtime', 'src', 'cli', 'deliberate.mjs');
+  if (existsSync(bundledEngine)) {
+    return { command: process.execPath, args: [bundledEngine], source: 'plugin runtime' };
+  }
+
+  const sourceEngine = join(pluginRoot, 'src', 'cli', 'deliberate.mjs');
+  const sourceDependency = join(pluginRoot, 'node_modules', 'sonorance', 'package.json');
+  if (existsSync(sourceEngine) && existsSync(sourceDependency)) {
+    return { command: process.execPath, args: [sourceEngine], source: 'source checkout' };
+  }
+
+  if (config.package && config.version) {
+    return {
+      command: process.platform === 'win32' ? 'npx.cmd' : 'npx',
+      args: ['--yes', `${config.package}@${config.version}`],
+      source: 'engine.json package',
+    };
+  }
+
+  const plugin = readJson(join(pluginRoot, 'plugin.json'));
+  if (plugin.name === 'deliberate' && plugin.version) {
+    return {
+      command: process.platform === 'win32' ? 'npx.cmd' : 'npx',
+      args: ['--yes', `deliberate-cli@${plugin.version}`],
+      source: 'plugin package',
+    };
+  }
+
+  throw new Error(
+    'Deliberate engine not found. Reinstall the Deliberate plugin, run `npx deliberate-cli install`, or set DELIBERATE_ENGINE.',
+  );
 }
 
-const target = launchTarget();
-const r = spawnSync(target.command, [...target.args, ...process.argv.slice(2)], { stdio: 'inherit' });
-process.exit(r.status ?? 1);
+function main() {
+  let target;
+  try {
+    target = resolveLaunchTarget();
+  } catch (error) {
+    console.error(error.message);
+    process.exit(1);
+  }
+
+  const result = spawnSync(target.command, [...target.args, ...process.argv.slice(2)], {
+    stdio: 'inherit',
+    cwd: process.cwd(),
+    env: process.env,
+  });
+  if (result.error) console.error(`Could not start Deliberate through ${target.source}: ${result.error.message}`);
+  process.exit(result.status ?? 1);
+}
+
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) main();
