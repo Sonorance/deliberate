@@ -90,6 +90,18 @@ test('CLI rejects in-project sources and hides legacy in-project entries', async
   assert.match(listed, /External entry/);
 });
 
+test('standalone skill installation is not a CLI command', () => {
+  const uninitialized = mkdtempSync(join(tmpdir(), 'dlb-no-install-'));
+  try {
+    const result = resultIn(uninitialized, ['install']);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Unknown command: install/);
+    assert.deepEqual(readdirSync(uninitialized), [], 'the removed command does not initialize or modify the folder');
+  } finally {
+    rmSync(uninitialized, { recursive: true, force: true });
+  }
+});
+
 test('`deliberate init` gitignores machine state (.sonorance/local/ + hidden deliberate/ subfolders) ONLY when a .gitignore exists', () => {
   const repo = mkdtempSync(join(tmpdir(), 'dlb-gi-'));
   const bare = mkdtempSync(join(tmpdir(), 'dlb-gi-none-'));

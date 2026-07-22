@@ -1,8 +1,7 @@
 #!/usr/bin/env node
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
-import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { verifyPlugin } from './verify-plugin.mjs';
 
@@ -25,7 +24,7 @@ rmSync(output, { recursive: true, force: true });
 mkdirSync(output, { recursive: true });
 manifest.version = pkg.version;
 writeFileSync(join(output, 'plugin.json'), `${JSON.stringify(manifest, null, 2)}\n`);
-copyTracked(['skill', 'LICENSE', 'README.md'], output);
+copyTracked(['skills', 'LICENSE', 'README.md'], output);
 
 const runtime = join(output, 'runtime');
 mkdirSync(runtime, { recursive: true });
@@ -41,20 +40,14 @@ if (install.error) throw install.error;
 if (install.status !== 0) process.exit(install.status ?? 1);
 
 verifyPlugin(output, { selfContained: true });
-const installTarget = mkdtempSync(join(tmpdir(), 'deliberate-plugin-install-'));
-try {
-  const engine = join(runtime, 'src', 'cli', 'deliberate.mjs');
-  const smoke = spawnSync(process.execPath, [engine, 'install', '--project', installTarget], {
-    encoding: 'utf8',
-    env: { ...process.env, CI: 'true', SONORANCE_AUTOMATION: '1' },
-  });
-  if (smoke.error) throw smoke.error;
-  if (smoke.status !== 0) throw new Error(smoke.stderr || smoke.stdout || 'bundled plugin install smoke failed');
-  const installed = join(installTarget, '.github', 'skills', 'deliberate');
-  if (!existsSync(join(installed, 'SKILL.md'))) throw new Error('bundled plugin install did not copy SKILL.md');
-  const config = JSON.parse(readFileSync(join(installed, 'scripts', 'engine.json'), 'utf8'));
-  if (config.engine !== engine) throw new Error('bundled plugin install did not retain its self-contained runtime');
-} finally {
-  rmSync(installTarget, { recursive: true, force: true });
+const engine = join(runtime, 'src', 'cli', 'deliberate.mjs');
+const smoke = spawnSync(process.execPath, [engine, 'help', '--skill'], {
+  encoding: 'utf8',
+  env: { ...process.env, CI: 'true', SONORANCE_AUTOMATION: '1' },
+});
+if (smoke.error) throw smoke.error;
+if (smoke.status !== 0) throw new Error(smoke.stderr || smoke.stdout || 'bundled plugin runtime smoke failed');
+if (!smoke.stdout.includes('/deliberate init') || /\bdeliberate install\b/.test(smoke.stdout)) {
+  throw new Error('bundled plugin runtime exposes the wrong command grammar');
 }
 process.stdout.write(`Built self-contained Deliberate plugin ${pkg.version} at ${output}.\n`);

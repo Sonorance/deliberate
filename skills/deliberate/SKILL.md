@@ -19,13 +19,13 @@ license: Apache-2.0
 
 ## Setup (do this first, every invocation)
 
-The engine is driven through this skill's launcher. Resolve `scripts/deliberate.mjs` relative to this skill's base directory, then define it once for this session:
+The engine is driven through the plugin skill's launcher. Resolve `scripts/deliberate.mjs` relative to this skill's base directory, then define it once for this session:
 
 ```
 LAUNCHER = node "<skill-base-directory>/scripts/deliberate.mjs"
 ```
 
-Run everything below as `LAUNCHER <args>`. It needs Node ≥ 22. The stage reasoning runs in this session; the LLM-free engine builds prompts, validates configuration, persists artifacts, and extracts structured values. The launcher prefers a self-contained plugin runtime, then a configured standalone install, then the plugin's pinned `deliberate-cli` package. If it prints "engine not found", tell the user to reinstall the Deliberate plugin or run `npx deliberate-cli install`, or set `DELIBERATE_ENGINE`.
+Run everything below as `LAUNCHER <args>`. It needs Node ≥ 22. The stage reasoning runs in this session; the LLM-free engine builds prompts, validates configuration, persists artifacts, and extracts structured values. The launcher prefers a self-contained plugin runtime, then a source checkout with installed dependencies, then the plugin's pinned `deliberate-cli` package. If it prints "engine not found", tell the user to reinstall the Deliberate plugin or set `DELIBERATE_ENGINE`.
 
 ## Commands
 

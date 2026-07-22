@@ -21,9 +21,8 @@ import { CommentClientError, fetchCommentBatch, fetchCommentProject, resolveComm
 import { buildLaunchUrl } from 'sonorance/launch-url';
 import { installSonoranceSkill } from 'sonorance/skill-installer';
 import { logFile } from 'sonorance/log.mjs';
-import { existsSync, readFileSync, writeFileSync, mkdirSync, cpSync, rmSync, realpathSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
-import { homedir } from 'node:os';
 import { spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { vaultIgnoreEntries } from 'sonorance/plugins/deliberate/gitignore.mjs';
@@ -135,21 +134,6 @@ const commentTarget = async () => {
 };
 // This checkout's version (for the serve pointer / stale-server detection). Best-effort.
 const pkgVersion = () => { try { return JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'package.json'), 'utf8')).version || '0'; } catch { return '0'; } };
-export const resolveSkillSource = (repoRoot) => {
-  const local = join(repoRoot, 'skill');
-  if (existsSync(local)) return local;
-  const pluginRoot = resolve(repoRoot, '..');
-  try {
-    const plugin = JSON.parse(readFileSync(join(pluginRoot, 'plugin.json'), 'utf8'));
-    const bundled = join(pluginRoot, plugin.skills || 'skill');
-    if (plugin.name === 'deliberate' && existsSync(bundled)) return bundled;
-  } catch {}
-  return null;
-};
-export const installEngineConfig = (repoRoot, engineFile, version = pkgVersion()) =>
-  existsSync(join(repoRoot, '.git')) || resolveSkillSource(repoRoot) === join(resolve(repoRoot, '..'), 'skill')
-    ? { engine: engineFile }
-    : { package: 'deliberate-cli', version };
 
 // ---- `case` sub-handlers (noun-first; the parent dispatcher routes to these) ----
 // Create a case (no run); the skill retains the returned id and passes it to every later command.
@@ -364,36 +348,6 @@ export const cmds = {
     P(`  ${c.d}diagnostics: ${logFile()}${c.x}`);
     if (A.includes('--open')) openBrowser(url);
     P(`  ${c.d}Ctrl-C to stop.${c.x}`);
-  },
-
-  // Install the /deliberate skill so GitHub Copilot CLI discovers it, with the
-  // current engine path baked in via scripts/engine.json. Default = global
-  // (~/.copilot/skills); project-scoped with --here /
-  // --project <dir> / a positional <dir> (writes into <repo>/.github/skills).
-  install([target]) {
-    const engineFile = fileURLToPath(import.meta.url);            // …/src/cli/deliberate.mjs
-    const repoRoot = resolve(dirname(engineFile), '..', '..');
-    // The canonical skill source is harness-neutral (`skill/`), NOT `.github/` (which is
-    // this repo's dev/git config). `install` copies it into the target harness's skills
-    // dir — Copilot's `.github/skills/deliberate` (project) or `~/.copilot/skills/deliberate`
-    // (global) today; the same copy targets `.claude/skills`, Cursor, … as those land.
-    const src = resolveSkillSource(repoRoot);
-    if (!src) throw new Error(`skill source not found for ${repoRoot}`);
-    const projectDir = opt('--project') || (A.includes('--here') ? process.cwd() : (target && !target.startsWith('--') ? target : null));
-    const project = !!projectDir;
-    const dest = project ? join(resolve(projectDir), '.github', 'skills', 'deliberate') : join(homedir(), '.copilot', 'skills', 'deliberate');
-    mkdirSync(dirname(dest), { recursive: true });
-    cpSync(src, dest, { recursive: true });
-    const engineConfig = installEngineConfig(repoRoot, engineFile);
-    writeFileSync(join(dest, 'scripts', 'engine.json'), JSON.stringify(engineConfig, null, 2) + '\n');
-    P(`${c.g}✓${c.x} installed the /deliberate skill ${c.d}(${project ? 'project' : 'global'})${c.x}`);
-    P(`  ${c.d}${dest}${c.x}`);
-    P(engineConfig.engine
-      ? `  engine: ${c.d}${engineFile}${c.x} ${c.d}(source checkout, via scripts/engine.json)${c.x}`
-      : `  engine: ${c.d}${engineConfig.package}@${engineConfig.version}${c.x} ${c.d}(pinned package, via scripts/engine.json)${c.x}`);
-    P(project
-      ? `  open ${c.w}${resolve(projectDir)}${c.x} in Copilot CLI and run ${c.w}/deliberate init${c.x}`
-      : `  open any repo in Copilot CLI and run ${c.w}/deliberate init${c.x}`);
   },
 
   // External context sources: URLs or paths outside this project — recorded (with an optional inline description)
@@ -624,8 +578,13 @@ export const cmds = {
 };
 
 async function main() {
-  store = openVault();
   A = process.argv.slice(2);
+  if (A[0] && !cmds[A[0]]) {
+    process.stderr.write(`Unknown command: ${A[0]}\n`);
+    process.exitCode = 1;
+    return;
+  }
+  store = openVault();
   const verb = cmds[A[0]] ? A[0] : 'help';
   const f = cmds[verb];
   // `serve` is the surface=ui process — the app server configures its own telemetry singleton;

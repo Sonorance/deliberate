@@ -11,14 +11,14 @@ export function verifyPlugin(pluginRoot, { selfContained = false } = {}) {
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   assert.equal(manifest.name, 'deliberate');
   assert.match(manifest.version, /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
-  assert.equal(manifest.skills, 'skill');
+  assert.deepEqual(manifest.skills, ['skills/']);
 
   for (const required of [
-    join(manifest.skills, 'SKILL.md'),
-    join(manifest.skills, 'scripts', 'deliberate.mjs'),
+    join('skills', 'deliberate', 'SKILL.md'),
+    join('skills', 'deliberate', 'scripts', 'deliberate.mjs'),
   ]) assert.ok(existsSync(join(root, required)), `plugin is missing ${required}`);
 
-  const skill = readFileSync(join(root, manifest.skills, 'SKILL.md'), 'utf8');
+  const skill = readFileSync(join(root, 'skills', 'deliberate', 'SKILL.md'), 'utf8');
   assert.match(skill, /^---\nname: deliberate\n[\s\S]*?\n---/);
   assert.match(skill, /<skill-base-directory>\/scripts\/deliberate\.mjs/);
 
@@ -44,7 +44,7 @@ export function verifyPlugin(pluginRoot, { selfContained = false } = {}) {
       const path = relative ? join(relative, entry.name) : entry.name;
       assert.notEqual(entry.name, '.DS_Store', `plugin includes local metadata at ${path}`);
       assert.ok(!entry.name.startsWith('.env'), `plugin includes environment configuration at ${path}`);
-      assert.notEqual(path, join('skill', 'scripts', 'engine.json'), 'plugin includes a machine-specific engine config');
+      assert.notEqual(path, join('skills', 'deliberate', 'scripts', 'engine.json'), 'plugin includes a machine-specific engine config');
       if (entry.isDirectory()) inspect(join(directory, entry.name), path);
     }
   };

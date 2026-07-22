@@ -4,8 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { installEngineConfig, resolveSkillSource } from '../src/cli/deliberate.mjs';
-import { resolveLaunchTarget } from '../skill/scripts/deliberate.mjs';
+import { resolveLaunchTarget } from '../skills/deliberate/scripts/deliberate.mjs';
 import { verifyPlugin } from '../scripts/verify-plugin.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -15,6 +14,7 @@ test('repository is a version-aligned Git-installable Copilot plugin', () => {
   const plugin = verifyPlugin(repoRoot);
   const marketplace = JSON.parse(readFileSync(join(repoRoot, '.github/plugin/marketplace.json'), 'utf8'));
   assert.equal(plugin.version, pkg.version);
+  assert.deepEqual(plugin.skills, ['skills/']);
   assert.equal(marketplace.metadata.version, pkg.version);
   assert.equal(marketplace.plugins.length, 1);
   assert.equal(marketplace.plugins[0].name, plugin.name);
@@ -25,7 +25,7 @@ test('repository is a version-aligned Git-installable Copilot plugin', () => {
 test('plugin launcher prefers a bundled runtime', () => {
   const root = mkdtempSync(join(tmpdir(), 'dlb-plugin-runtime-'));
   try {
-    const baseDir = join(root, 'skill', 'scripts');
+    const baseDir = join(root, 'skills', 'deliberate', 'scripts');
     const engine = join(root, 'runtime', 'src', 'cli', 'deliberate.mjs');
     mkdirSync(dirname(engine), { recursive: true });
     mkdirSync(baseDir, { recursive: true });
@@ -43,7 +43,7 @@ test('plugin launcher prefers a bundled runtime', () => {
 test('thin plugin launcher falls back to its pinned npm runtime', () => {
   const root = mkdtempSync(join(tmpdir(), 'dlb-plugin-thin-'));
   try {
-    const baseDir = join(root, 'skill', 'scripts');
+    const baseDir = join(root, 'skills', 'deliberate', 'scripts');
     mkdirSync(baseDir, { recursive: true });
     writeFileSync(join(root, 'plugin.json'), '{"name":"deliberate","version":"1.2.3"}\n');
     const target = resolveLaunchTarget({ baseDir, env: {} });
@@ -54,19 +54,18 @@ test('thin plugin launcher falls back to its pinned npm runtime', () => {
   }
 });
 
-test('self-contained runtime can install its plugin skill without npm', () => {
-  const root = mkdtempSync(join(tmpdir(), 'dlb-plugin-install-'));
+test('thin plugin ignores removed standalone engine configuration', () => {
+  const root = mkdtempSync(join(tmpdir(), 'dlb-plugin-no-legacy-install-'));
   try {
-    const runtime = join(root, 'runtime');
-    const engine = join(runtime, 'src', 'cli', 'deliberate.mjs');
-    const skill = join(root, 'skill');
-    mkdirSync(dirname(engine), { recursive: true });
-    mkdirSync(skill, { recursive: true });
-    writeFileSync(engine, '');
-    writeFileSync(join(skill, 'SKILL.md'), '');
-    writeFileSync(join(root, 'plugin.json'), '{"name":"deliberate","version":"1.2.3","skills":"skill"}\n');
-    assert.equal(resolveSkillSource(runtime), skill);
-    assert.deepEqual(installEngineConfig(runtime, engine, '1.2.3'), { engine });
+    const baseDir = join(root, 'skills', 'deliberate', 'scripts');
+    const legacyEngine = join(root, 'legacy-engine.mjs');
+    mkdirSync(baseDir, { recursive: true });
+    writeFileSync(legacyEngine, '');
+    writeFileSync(join(baseDir, 'engine.json'), JSON.stringify({ engine: legacyEngine }));
+    writeFileSync(join(root, 'plugin.json'), '{"name":"deliberate","version":"1.2.3"}\n');
+    const target = resolveLaunchTarget({ baseDir, env: {} });
+    assert.deepEqual(target.args, ['--yes', 'deliberate-cli@1.2.3']);
+    assert.equal(target.source, 'plugin package');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

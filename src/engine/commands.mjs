@@ -81,7 +81,6 @@ export const CLI_COMMANDS = [
   ['help [--skill]', 'Print the engine CLI grammar; --skill prints the current user-facing /deliberate grammar.'],
   ['init', 'Set up the current folder as a project (deliberate/ + context); name = folder.'],
   ['init prompt', 'Print the Initiator prompt (method + the context scaffolds) for the host to fill the project context.'],
-  ['install [--here | --project <dir>]', 'Install the /deliberate skill (global, or into a repo’s .github/skills).'],
   ['matchup list', 'List the project’s matchups (one per rival; newest first; delete one by removing its folder).'],
   ['matchup prompt <competitor>', 'Print the Scout prompt (context + the rival + template) for the host to fulfill.'],
   ['matchup save <competitor> [--file <path>]', 'Persist a produced matchup into deliberate/matchups/<slug>/matchup.md (refresh-in-place); prints its id.'],

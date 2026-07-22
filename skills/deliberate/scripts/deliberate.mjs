@@ -1,13 +1,12 @@
 #!/usr/bin/env node
 /**
- * Stable launcher for source, standalone-skill, thin-plugin, and bundled-plugin installs.
+ * Stable plugin launcher for source, thin-plugin, and bundled-plugin installs.
  *
  * Resolution order:
  *   1. DELIBERATE_ENGINE
- *   2. scripts/engine.json (standalone `deliberate install`)
- *   3. ../../runtime/src/cli/deliberate.mjs (self-contained plugin)
- *   4. ../../src/cli/deliberate.mjs (source checkout with dependencies installed)
- *   5. pinned npx package from engine.json or ../../plugin.json (thin plugin)
+ *   2. ../../runtime/src/cli/deliberate.mjs (self-contained plugin)
+ *   3. ../../src/cli/deliberate.mjs (source checkout with dependencies installed)
+ *   4. pinned npx package from ../../plugin.json (thin plugin)
  */
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -28,12 +27,7 @@ export function resolveLaunchTarget({ baseDir = here, env = process.env } = {}) 
     return { command: process.execPath, args: [env.DELIBERATE_ENGINE], source: 'DELIBERATE_ENGINE' };
   }
 
-  const config = readJson(join(baseDir, 'engine.json'));
-  if (config.engine && existsSync(config.engine)) {
-    return { command: process.execPath, args: [config.engine], source: 'engine.json' };
-  }
-
-  const pluginRoot = resolve(baseDir, '..', '..');
+  const pluginRoot = resolve(baseDir, '..', '..', '..');
   const bundledEngine = join(pluginRoot, 'runtime', 'src', 'cli', 'deliberate.mjs');
   if (existsSync(bundledEngine)) {
     return { command: process.execPath, args: [bundledEngine], source: 'plugin runtime' };
@@ -43,14 +37,6 @@ export function resolveLaunchTarget({ baseDir = here, env = process.env } = {}) 
   const sourceDependency = join(pluginRoot, 'node_modules', 'sonorance', 'package.json');
   if (existsSync(sourceEngine) && existsSync(sourceDependency)) {
     return { command: process.execPath, args: [sourceEngine], source: 'source checkout' };
-  }
-
-  if (config.package && config.version) {
-    return {
-      command: process.platform === 'win32' ? 'npx.cmd' : 'npx',
-      args: ['--yes', `${config.package}@${config.version}`],
-      source: 'engine.json package',
-    };
   }
 
   const plugin = readJson(join(pluginRoot, 'plugin.json'));
@@ -63,7 +49,7 @@ export function resolveLaunchTarget({ baseDir = here, env = process.env } = {}) 
   }
 
   throw new Error(
-    'Deliberate engine not found. Reinstall the Deliberate plugin, run `npx deliberate-cli install`, or set DELIBERATE_ENGINE.',
+    'Deliberate engine not found. Reinstall the Deliberate plugin or set DELIBERATE_ENGINE.',
   );
 }
 

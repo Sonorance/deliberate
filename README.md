@@ -7,14 +7,11 @@ Deliberate is a files-first product toolkit inside your agent. It turns any cons
 Node.js 22.5 or newer is required.
 
 ```bash
-copilot plugin install Sonorance/deliberate
+copilot plugin marketplace add Sonorance/deliberate
+copilot plugin install deliberate@deliberate
 ```
 
-This installs Deliberate as a GitHub Copilot plugin. The plugin supplies the `/deliberate` Agent Skill and resolves its matching runtime automatically. The release artifact also contains a self-contained runtime for local or managed distribution. If plugin installation is unavailable, the standalone Agent Skill installer remains supported:
-
-```bash
-npx deliberate-cli install
-```
+This installs Deliberate as a GitHub Copilot plugin. The plugin supplies the `/deliberate` Agent Skill and resolves its matching runtime automatically. The release artifact also contains a self-contained runtime for local or managed distribution. The `deliberate-cli` npm package is the plugin's runtime and is not a separate installation path.
 
 An **agent harness** is the app or CLI where an agent runs, uses tools, and loads skills—for example, OpenAI Codex or GitHub Copilot. Deliberate's plugin currently targets GitHub Copilot. A typical first journey establishes the product and market baseline before creating a case:
 
@@ -52,7 +49,6 @@ Every case follows `frame → shape → launch`, but each lens selects different
 deliberate help [--skill]
 deliberate init
 deliberate serve [--open] [--port <n>] [--file <path>]
-deliberate install [--here|--project <dir>]
 deliberate case "<idea>" [--lens <product|market|strategy|platform>]
 deliberate case list
 deliberate case analysis prompt|save <case-id> [--file <path> | --note <text>]
@@ -114,7 +110,7 @@ deliberate/
 src/engine/   prompt builders, persistence, role configuration, and commands
 src/cli/      the deliberate binary
 roles/        generic instructions, templates, and methods
-skill/        the shipped /deliberate skill and launcher
+skills/deliberate/  the plugin's /deliberate skill and launcher
 plugin.json   the Git-installable Copilot plugin manifest
 scripts/      plugin/package build and verification
 test/         offline engine, CLI, contract, and skill tests
