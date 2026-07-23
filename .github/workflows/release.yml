@@ -35,7 +35,7 @@ jobs:
       plugin_tarball: ${{ steps.plugin.outputs.tarball }}
       version: ${{ steps.release.outputs.version }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || github.sha }}
