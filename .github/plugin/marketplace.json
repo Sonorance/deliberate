@@ -5,13 +5,13 @@
   },
   "metadata": {
     "description": "Files-first product workflows inside your agent",
-    "version": "0.3.2"
+    "version": "0.4.0"
   },
   "plugins": [
     {
       "name": "deliberate",
       "description": "Analyze grounded product decisions, monitor the market, read product evidence, and keep every result as reviewable files.",
-      "version": "0.3.2",
+      "version": "0.4.0",
       "author": {
         "name": "Sonorance"
       },
