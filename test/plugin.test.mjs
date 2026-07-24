@@ -20,6 +20,9 @@ test('repository is a version-aligned Git-installable Copilot plugin', () => {
   assert.equal(marketplace.plugins[0].name, plugin.name);
   assert.equal(marketplace.plugins[0].version, pkg.version);
   assert.equal(marketplace.plugins[0].source, '.');
+  assert.equal(pkg.homepage, 'https://trydeliberate.com');
+  assert.equal(plugin.homepage, pkg.homepage);
+  assert.equal(marketplace.plugins[0].homepage, pkg.homepage);
 });
 
 test('plugin launcher prefers a bundled runtime', () => {

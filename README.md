@@ -78,6 +78,12 @@ After a brief, readout, or matchup surfaces case-worthy decisions, the default f
 
 The underlying `--lens` option is host orchestration; users normally run `/deliberate case <idea>` without it. Run `deliberate help --skill` for generated, current command guidance.
 
+## Support and security
+
+Use the repository's issue forms for public bug reports, questions, and product feedback. Remove credentials, private project content, personal information, prompts, and completions before submitting.
+
+Report suspected vulnerabilities through [GitHub private vulnerability reporting](https://github.com/Sonorance/deliberate/security/advisories/new), never through a public issue. See [SECURITY.md](SECURITY.md) for the reporting policy.
+
 ## Files
 
 ```text
