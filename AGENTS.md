@@ -1,6 +1,23 @@
 # Repository guidance for AI agents
 
-This repo implements **Deliberate** — a local, files-first product toolkit for product managers, founders, business development, marketing, and adjacent roles. It ships as an **agent plugin whose canonical workflow payload is the `/deliberate` Agent Skill**; the plugin is the installation, discovery, and versioning envelope, while the skill remains the portable method and command contract. The host produces cases, briefs, product readouts, matchups, context, prototypes, and reviewable records in-session. Sonorance is the stable app/platform and agent-review workbench Deliberate runs on; Deliberate contributes capabilities additively and never replaces or rebrands it.
+This repo implements **Deliberate** — a local, files-first product toolkit for product managers, founders, business development, marketing, and adjacent roles. It ships one canonical `/deliberate` Agent Skill through native plugins or extensions for GitHub Copilot, Claude Code, Codex, Gemini CLI, and Cursor, and as a portable Agent Skill for OpenCode and Windsurf. These envelopes provide installation, discovery, and versioning while `skills/deliberate/` remains the single portable method and command contract. The host produces cases, briefs, product readouts, matchups, context, prototypes, and reviewable records in-session. Sonorance is the stable app/platform and agent-review workbench Deliberate runs on; Deliberate contributes capabilities additively and never replaces or rebrands it.
+
+## Distribution contract
+- **Keep one skill payload.** Every harness adapter discovers `skills/deliberate/`; never copy or fork `SKILL.md` into a harness-specific directory.
+- **Keep thin installs deterministic.** `skills/deliberate/runtime.json` pins the exact `deliberate-cli` runtime and Node.js floor. The launcher resolves `DELIBERATE_ENGINE`, an enclosing bundled runtime, a dependency-complete source checkout, then that exact npm version; it never uses `@latest` or the removed `engine.json`.
+- **Keep npm runtime-only.** Never add `skills/`, plugin manifests, or an installer command to the npm `files` allowlist. Do not restore `deliberate install` or `npx deliberate-cli install`.
+- **Keep every adapter version-aligned.** `package.json` is the source of truth and the npm `version` lifecycle synchronizes every manifest, marketplace, `runtime.json`, and retained `SKILL.md` version.
+- **Build one universal distribution.** `npm run build:plugin` creates `dist/deliberate/` with all native adapters, the canonical skill, matching bundled runtime, LICENSE, and README; both archive formats derive from that verified directory. The universal `deliberate-v<version>.tar.gz` must be the sole GitHub Release asset and serves every managed/offline install. Keep `deliberate-plugin-v<version>.tgz` only as a GitHub Actions workflow artifact.
+- **Keep prerequisites scoped.** The Deliberate runtime contract remains Node.js 22.5+, while OpenCode/Windsurf installation through the external `skills` CLI requires Node.js 22.20+. Never present either floor as a prerequisite imposed by every harness.
+
+## Target installation flows
+- **GitHub Copilot CLI:** `copilot plugin install Sonorance/deliberate`. This configures CLI only; Copilot app and cloud-agent enablement belongs in the consumer repository's `.github/copilot/settings.json` through `enabledPlugins` and, when needed, `extraKnownMarketplaces`.
+- **Claude Code:** `/plugin marketplace add Sonorance/deliberate`, then `/plugin install deliberate@deliberate` and `/reload-plugins`.
+- **Claude Code lifecycle:** refresh with `/plugin marketplace update deliberate`; uninstall with `/plugin uninstall deliberate@deliberate`.
+- **Codex:** `codex plugin marketplace add Sonorance/deliberate`, then install Deliberate from `/plugins` and start a new session. `codex plugin marketplace upgrade deliberate` refreshes only the catalog; update or remove the installed plugin through `/plugins` or `codex plugin`, then start a new session.
+- **Gemini CLI:** `gemini extensions install https://github.com/Sonorance/deliberate`.
+- **Cursor:** install from Marketplace Customize only after acceptance; public approval is pending, so use local/team plugin loading until then.
+- **OpenCode and Windsurf:** `npx skills add Sonorance/deliberate --skill deliberate --global --agent <agent>`, using `opencode` or `windsurf`.
 
 ## Golden rules
 - **Ground every claim.** Each conclusion must trace to the case, the attached project-external sources, the three project-context files (`product.md`, `competitors.md`, `ecosystem.md`), or an explicit assumption labelled as such. Never invent demand, personas, competitors, or distribution channels.
