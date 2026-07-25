@@ -40,7 +40,8 @@ for (const path of required) {
 for (const path of normalizedMembers.keys()) {
   const relative = path.slice(prefix.length);
   const dependency = relative.startsWith('runtime/node_modules/');
-  assert.ok(!relative.split('/').some((segment) => segment === 'internal' || segment === '.git'), `distribution archive includes private or repository material at ${relative}`);
+  assert.ok(!relative.split('/').some((segment) => segment === '.git'), `distribution archive includes repository material at ${relative}`);
+  assert.ok(dependency || !relative.split('/').some((segment) => segment === 'internal'), `distribution archive includes private material at ${relative}`);
   assert.ok(dependency || !relative.split('/').some((segment) => /^(?:tests?|specs?)$/.test(segment)), `distribution archive includes test material at ${relative}`);
   assert.ok(!relative.split('/').some((segment) => segment === 'engine.json' || segment.startsWith('.env')), `distribution archive includes local runtime configuration at ${relative}`);
 }

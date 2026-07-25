@@ -12,6 +12,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { resolveLaunchTarget } from '../skills/deliberate/scripts/deliberate.mjs';
 import { verifyPlugin } from '../scripts/verify-plugin.mjs';
@@ -24,7 +25,7 @@ const runtimeMetadata = {
 };
 
 const withWorkspace = (prefix, run) => {
-  const root = mkdtempSync(join(repoRoot, `.${prefix}-`));
+  const root = mkdtempSync(join(tmpdir(), `${prefix}-`));
   try {
     return run(root);
   } finally {

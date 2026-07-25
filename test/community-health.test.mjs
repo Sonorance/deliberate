@@ -22,7 +22,7 @@ test('public issue intake keeps sensitive reports private', () => {
   }
 
   const policy = readFileSync(join(repoRoot, 'SECURITY.md'), 'utf8');
-  assert.match(policy, new RegExp(privateReportUrl.replaceAll('/', '\\/')));
+  assert.match(policy, new RegExp(privateReportUrl.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.match(policy, /Do not open a public issue/);
 });
 

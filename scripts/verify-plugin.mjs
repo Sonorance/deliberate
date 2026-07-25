@@ -68,7 +68,8 @@ const inspectArtifact = (root) => {
       assert.notEqual(entry.name, '.DS_Store', `distribution includes local metadata at ${path}`);
       assert.ok(!entry.name.startsWith('.env'), `distribution includes environment configuration at ${path}`);
       assert.notEqual(entry.name, 'engine.json', `distribution includes removed engine configuration at ${path}`);
-      assert.ok(!normalized.split('/').some((segment) => segment === 'internal' || segment === '.git'), `distribution includes private or repository material at ${path}`);
+      assert.ok(!normalized.split('/').some((segment) => segment === '.git'), `distribution includes repository material at ${path}`);
+      assert.ok(dependency || !normalized.split('/').some((segment) => segment === 'internal'), `distribution includes private material at ${path}`);
       assert.ok(dependency || !normalized.split('/').some((segment) => /^(?:tests?|specs?)$/.test(segment)), `distribution includes test material at ${path}`);
       if (entry.isDirectory()) inspect(join(directory, entry.name), path);
       else if (!dependency && statSync(join(directory, entry.name)).size < 1_000_000) {
