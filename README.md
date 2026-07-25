@@ -4,16 +4,44 @@ Deliberate is a files-first product toolkit inside your agent. It turns any cons
 
 ## Install and run
 
-Node.js 22.5 or newer is required.
+The pinned Deliberate runtime requires Node.js 22.5 or newer. OpenCode and Windsurf installation through the `skills` CLI requires Node.js 22.20 or newer, so use Node.js 22.20+ for those two flows.
+
+Deliberate ships one canonical Agent Skill through native plugin or extension envelopes where the harness supports them:
+
+| Harness | Install | Invoke |
+|---|---|---|
+| **GitHub Copilot** | `copilot plugin install Sonorance/deliberate` | `/deliberate` |
+| **Claude Code** | `/plugin marketplace add Sonorance/deliberate`, then `/plugin install deliberate@deliberate` and `/reload-plugins` | `/deliberate:deliberate` |
+| **Codex** | `codex plugin marketplace add Sonorance/deliberate`, then install Deliberate from `/plugins` and start a new session | `$deliberate` |
+| **Gemini CLI** | `gemini extensions install https://github.com/Sonorance/deliberate` | Ask Gemini to use Deliberate |
+| **Cursor** | **Approval pending:** after Marketplace acceptance, install Deliberate from Customize; until then, load this repository only as a local/team plugin | `/deliberate` |
+
+Copilot's repository marketplace remains available for team-managed discovery:
 
 ```bash
 copilot plugin marketplace add Sonorance/deliberate
 copilot plugin install deliberate@deliberate
 ```
 
-This installs Deliberate as a GitHub Copilot plugin. The plugin supplies the `/deliberate` Agent Skill and resolves its matching runtime automatically. The release artifact also contains a self-contained runtime for local or managed distribution. The `deliberate-cli` npm package is the plugin's runtime and is not a separate installation path.
+`copilot plugin install` configures Copilot CLI only; it does not enable Deliberate in the Copilot app or cloud agent. App and cloud-agent enablement is declarative in each consumer repository's `.github/copilot/settings.json`: configure `enabledPlugins` and, when the Deliberate marketplace is not already known, `extraKnownMarketplaces`.
 
-An **agent harness** is the app or CLI where an agent runs, uses tools, and loads skills—for example, OpenAI Codex or GitHub Copilot. Deliberate's plugin currently targets GitHub Copilot. A typical first journey establishes the product and market baseline before creating a case:
+OpenCode and Windsurf use the same portable Agent Skill through the ecosystem `skills` installer:
+
+```bash
+npx skills add Sonorance/deliberate --skill deliberate --global --agent opencode
+npx skills add Sonorance/deliberate --skill deliberate --global --agent windsurf
+```
+
+Every thin install copies the skill and its launcher without running Deliberate during installation. On invocation, the launcher uses `DELIBERATE_ENGINE` when supplied, then an enclosing bundled runtime, then an installed source checkout, and finally downloads the exact `deliberate-cli` version pinned in the skill's `runtime.json`; it never selects `@latest`. The `deliberate-cli` npm package is runtime-only and has no plugin or skill installer.
+
+Each GitHub release has exactly one asset: the universal self-contained `deliberate-v<version>.tar.gz`, with all native manifests at the correct archive root, the canonical skill, and its matching runtime. Use that archive for every offline or managed installation. The compatibility `deliberate-plugin-v<version>.tgz` is built from the same verified directory but retained only as a GitHub Actions workflow artifact, not as a GitHub Release asset.
+
+## Update or remove
+
+- **Claude Code:** refresh the catalog with `/plugin marketplace update deliberate`; remove the installed plugin with `/plugin uninstall deliberate@deliberate`.
+- **Codex:** `codex plugin marketplace upgrade deliberate` refreshes only the marketplace catalog. Update or remove the installed plugin through `/plugins` or the `codex plugin` command group, then start a new session.
+
+A typical first journey establishes the product and market baseline before creating a case:
 
 ```text
 /deliberate init
@@ -117,7 +145,11 @@ src/engine/   prompt builders, persistence, role configuration, and commands
 src/cli/      the deliberate binary
 roles/        generic instructions, templates, and methods
 skills/deliberate/  the plugin's /deliberate skill and launcher
-plugin.json   the Git-installable Copilot plugin manifest
-scripts/      plugin/package build and verification
+plugin.json and .github/plugin/  GitHub Copilot plugin and marketplace
+.claude-plugin/  Claude Code plugin and marketplace
+.codex-plugin/ and .agents/plugins/  Codex plugin and marketplace
+gemini-extension.json  Gemini CLI extension
+.cursor-plugin/  Cursor plugin
+scripts/      universal distribution/package build and verification
 test/         offline engine, CLI, contract, and skill tests
 ```
