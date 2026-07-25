@@ -1,7 +1,7 @@
 ---
 name: deliberate
 description: 'Use Deliberate for files-first product work inside an agent: analyze any idea or signal across product, marketing, strategy, or platform and ecosystem; score grounded recommendations; build optional prototypes; scan competitive and market changes; read product metrics and customer evidence; compare competitors; and ground agents in repo product context. For product managers, founders, business development, marketing, and adjacent roles. Outputs are reviewable Markdown in the current repo.'
-version: '0.4.0'
+version: '0.5.0'
 user-invocable: true
 argument-hint: '[help | init | case <idea> | brief | readout | matchup <competitor> | score | prototype | address | case list | brief list | readout list | matchup list | source | feedback] [idea, a URL, or a file path]'
 license: Apache-2.0

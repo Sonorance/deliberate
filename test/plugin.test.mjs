@@ -209,7 +209,8 @@ test('launcher selects the platform npx executable', () => withWorkspace('platfo
 
 test('universal self-contained distribution verifies every adapter and runtime', () => withWorkspace('universal-distribution', (root) => {
   copyUniversalFixture(root);
-  assert.equal(verifyPlugin(root, { selfContained: true }).version, '0.4.0');
+  const version = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')).version;
+  assert.equal(verifyPlugin(root, { selfContained: true }).version, version);
 }));
 
 test('universal verifier rejects version drift', () => withWorkspace('distribution-drift', (root) => {
