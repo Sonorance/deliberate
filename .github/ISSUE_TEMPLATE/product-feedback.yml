@@ -1,0 +1,44 @@
+name: Product feedback
+description: Describe a problem, unmet goal, or opportunity for Deliberate.
+title: "[Feedback] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: Focus on what you are trying to accomplish and why it matters. Issues are public, so do not include credentials, private project content, prompts, completions, or customer data.
+  - type: textarea
+    id: goal
+    attributes:
+      label: What are you trying to accomplish?
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is difficult or impossible today?
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Why does this matter?
+      description: Describe the consequence, frequency, or value of solving it.
+    validations:
+      required: true
+  - type: textarea
+    id: current-approach
+    attributes:
+      label: How do you handle it today?
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional public context
+      description: Add only information you are comfortable publishing.
+  - type: checkboxes
+    id: public-data
+    attributes:
+      label: Public data confirmation
+      options:
+        - label: I removed credentials, private project content, personal information, prompts, completions, and customer data.
+          required: true

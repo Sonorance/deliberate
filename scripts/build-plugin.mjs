@@ -1,14 +1,13 @@
 #!/usr/bin/env node
-import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { verifyPlugin } from './verify-plugin.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const output = resolve(repoRoot, 'dist', 'deliberate-plugin');
+const output = resolve(repoRoot, 'dist', 'deliberate');
 const pkg = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'));
-const manifest = JSON.parse(readFileSync(join(repoRoot, 'plugin.json'), 'utf8'));
 const copyTracked = (paths, destination) => {
   const listed = spawnSync('git', ['ls-files', '-z', '--', ...paths], { cwd: repoRoot, encoding: 'utf8' });
   if (listed.error) throw listed.error;
@@ -19,12 +18,27 @@ const copyTracked = (paths, destination) => {
     cpSync(join(repoRoot, path), target);
   }
 };
+const copyFile = (path, destination) => {
+  const target = join(destination, path);
+  mkdirSync(dirname(target), { recursive: true });
+  cpSync(join(repoRoot, path), target);
+};
 
+verifyPlugin(repoRoot);
 rmSync(output, { recursive: true, force: true });
 mkdirSync(output, { recursive: true });
-manifest.version = pkg.version;
-writeFileSync(join(output, 'plugin.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 copyTracked(['skills', 'LICENSE', 'README.md'], output);
+for (const path of [
+  'plugin.json',
+  '.github/plugin/marketplace.json',
+  '.claude-plugin/plugin.json',
+  '.claude-plugin/marketplace.json',
+  '.codex-plugin/plugin.json',
+  '.agents/plugins/marketplace.json',
+  'gemini-extension.json',
+  '.cursor-plugin/plugin.json',
+  'skills/deliberate/runtime.json',
+]) copyFile(path, output);
 
 const runtime = join(output, 'runtime');
 mkdirSync(runtime, { recursive: true });
@@ -50,4 +64,4 @@ if (smoke.status !== 0) throw new Error(smoke.stderr || smoke.stdout || 'bundled
 if (!smoke.stdout.includes('/deliberate init') || /\bdeliberate install\b/.test(smoke.stdout)) {
   throw new Error('bundled plugin runtime exposes the wrong command grammar');
 }
-process.stdout.write(`Built self-contained Deliberate plugin ${pkg.version} at ${output}.\n`);
+process.stdout.write(`Built universal self-contained Deliberate distribution ${pkg.version} at ${output}.\n`);

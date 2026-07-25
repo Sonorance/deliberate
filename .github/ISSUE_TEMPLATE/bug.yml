@@ -1,0 +1,69 @@
+name: Bug report
+description: Report reproducible behavior that is not working as expected.
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Do not include credentials, private project content, prompts, completions, or customer data. Report suspected security vulnerabilities through private vulnerability reporting instead.
+  - type: textarea
+    id: goal
+    attributes:
+      label: What were you trying to do?
+      description: Describe the goal and the command or workflow you were using.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Provide the smallest reliable sequence using synthetic or public data.
+      placeholder: |
+        1. Run ...
+        2. Select ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Deliberate and Sonorance versions, if known.
+      placeholder: Deliberate 0.4.0; Sonorance 0.4.0
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Agent harness, operating system, Node.js version.
+      placeholder: GitHub Copilot CLI; macOS 15; Node.js 22
+  - type: checkboxes
+    id: public-data
+    attributes:
+      label: Public data confirmation
+      options:
+        - label: I removed credentials, private project content, personal information, prompts, completions, and customer data.
+          required: true
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: Frequency
+      options:
+        - Every time
+        - Intermittently
+        - Once
+        - Unknown
+    validations:
+      required: true
