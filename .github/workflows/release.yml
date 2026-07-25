@@ -33,7 +33,11 @@ jobs:
       tag: ${{ steps.release.outputs.tag }}
       tarball: ${{ steps.package.outputs.tarball }}
       plugin_tarball: ${{ steps.plugin.outputs.tarball }}
+      universal_tarball: ${{ steps.plugin.outputs.universal_tarball }}
       version: ${{ steps.release.outputs.version }}
+    env:
+      CI: true
+      SONORANCE_AUTOMATION: 1
     steps:
       - uses: actions/checkout@v7
         with:
@@ -78,16 +82,22 @@ jobs:
           test -f "$tarball"
           node scripts/verify-tarball.mjs "$tarball"
           echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
-      - name: Build and verify self-contained plugin
+      - name: Build and verify universal self-contained distribution
         id: plugin
         run: |
           set -euo pipefail
           npm run build:plugin
-          tarball="deliberate-plugin-v${{ steps.release.outputs.version }}.tgz"
-          tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner -czf "$tarball" -C dist deliberate-plugin
-          test -f "$tarball"
-          node scripts/verify-plugin.mjs dist/deliberate-plugin --self-contained
-          echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
+          plugin_tarball="deliberate-plugin-v${{ steps.release.outputs.version }}.tgz"
+          universal_tarball="deliberate-v${{ steps.release.outputs.version }}.tar.gz"
+          tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner --transform='s,^deliberate,deliberate-plugin,' -czf "$plugin_tarball" -C dist deliberate
+          tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner -czf "$universal_tarball" -C dist/deliberate .
+          test -f "$plugin_tarball"
+          test -f "$universal_tarball"
+          node scripts/verify-plugin.mjs dist/deliberate --self-contained
+          node scripts/verify-distribution-archive.mjs "$plugin_tarball"
+          node scripts/verify-distribution-archive.mjs "$universal_tarball"
+          echo "tarball=$plugin_tarball" >> "$GITHUB_OUTPUT"
+          echo "universal_tarball=$universal_tarball" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v7
         with:
           name: npm-package
@@ -96,8 +106,10 @@ jobs:
           retention-days: 7
       - uses: actions/upload-artifact@v7
         with:
-          name: plugin-package
-          path: ${{ steps.plugin.outputs.tarball }}
+          name: distribution-package
+          path: |
+            ${{ steps.plugin.outputs.tarball }}
+            ${{ steps.plugin.outputs.universal_tarball }}
           if-no-files-found: error
           retention-days: 7
 
@@ -143,7 +155,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
         with:
-          name: plugin-package
+          name: distribution-package
       - name: Create or resume GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -169,16 +181,27 @@ jobs:
             if [ "${{ needs.build.outputs.prerelease }}" = "true" ]; then args+=(--prerelease); else args+=(--latest); fi
             gh release create "$tag" --target "${{ needs.build.outputs.sha }}" --title "Deliberate ${{ needs.build.outputs.version }}" --generate-notes "${args[@]}"
           fi
-          asset="${{ needs.build.outputs.plugin_tarball }}"
-          if gh release view "$tag" --json assets --jq '.assets[].name' | grep -Fxq "$asset"; then
-            existing=$(mktemp -d)
-            trap 'rm -rf "$existing"' EXIT
-            gh release download "$tag" --pattern "$asset" --dir "$existing"
-            if ! cmp -s "$asset" "$existing/$asset"; then
+          asset="${{ needs.build.outputs.universal_tarball }}"
+          assets=$(gh release view "$tag" --json assets --jq '.assets[].name')
+          unexpected=$(printf '%s\n' "$assets" | sed '/^$/d' | grep -Fvx "$asset" || true)
+          if [ -n "$unexpected" ]; then
+            echo "::error::$tag must contain only $asset, but also contains: $unexpected"
+            exit 1
+          fi
+          if printf '%s\n' "$assets" | grep -Fxq "$asset"; then
+            mkdir .release-assets
+            trap 'rm -rf .release-assets' EXIT
+            gh release download "$tag" --pattern "$asset" --dir .release-assets
+            if ! cmp -s "$asset" ".release-assets/$asset"; then
               echo "::error::$tag already has a different $asset."
               exit 1
             fi
-            echo "$tag already has the verified plugin artifact; resuming."
+            echo "$tag already has the verified universal artifact; resuming."
           else
             gh release upload "$tag" "$asset"
+          fi
+          final_assets=$(gh release view "$tag" --json assets --jq '.assets[].name')
+          if [ "$final_assets" != "$asset" ]; then
+            echo "::error::$tag does not contain exactly the universal release asset $asset."
+            exit 1
           fi

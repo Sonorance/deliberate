@@ -1,6 +1,6 @@
 {
   "name": "deliberate-cli",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "type": "module",
   "description": "Deliberate — a files-first product toolkit for agents that creates grounded, reviewable Markdown cases, briefs, readouts, matchups, and prototypes.",
   "author": {
@@ -11,7 +11,7 @@
     "type": "git",
     "url": "git+https://github.com/Sonorance/deliberate.git"
   },
-  "homepage": "https://deliberate.md",
+  "homepage": "https://trydeliberate.com",
   "bugs": {
     "url": "https://github.com/Sonorance/deliberate/issues"
   },

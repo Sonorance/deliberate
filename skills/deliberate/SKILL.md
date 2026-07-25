@@ -1,7 +1,7 @@
 ---
 name: deliberate
 description: 'Use Deliberate for files-first product work inside an agent: analyze any idea or signal across product, marketing, strategy, or platform and ecosystem; score grounded recommendations; build optional prototypes; scan competitive and market changes; read product metrics and customer evidence; compare competitors; and ground agents in repo product context. For product managers, founders, business development, marketing, and adjacent roles. Outputs are reviewable Markdown in the current repo.'
-version: '0.1.0'
+version: '0.5.0'
 user-invocable: true
 argument-hint: '[help | init | case <idea> | brief | readout | matchup <competitor> | score | prototype | address | case list | brief list | readout list | matchup list | source | feedback] [idea, a URL, or a file path]'
 license: Apache-2.0
@@ -19,13 +19,13 @@ license: Apache-2.0
 
 ## Setup (do this first, every invocation)
 
-The engine is driven through the plugin skill's launcher. Resolve `scripts/deliberate.mjs` relative to this skill's base directory, then define it once for this session:
+The engine is driven through this skill's portable launcher. Resolve `scripts/deliberate.mjs` relative to this skill's base directory, then define it once for this session:
 
 ```
 LAUNCHER = node "<skill-base-directory>/scripts/deliberate.mjs"
 ```
 
-Run everything below as `LAUNCHER <args>`. It needs Node ≥ 22. The stage reasoning runs in this session; the LLM-free engine builds prompts, validates configuration, persists artifacts, and extracts structured values. The launcher prefers a self-contained plugin runtime, then a source checkout with installed dependencies, then the plugin's pinned `deliberate-cli` package. If it prints "engine not found", tell the user to reinstall the Deliberate plugin or set `DELIBERATE_ENGINE`.
+Run everything below as `LAUNCHER <args>`. It needs Node ≥ 22.5. The stage reasoning runs in this session; the LLM-free engine builds prompts, validates configuration, persists artifacts, and extracts structured values. The launcher prefers `DELIBERATE_ENGINE`, then an enclosing self-contained runtime, then a source checkout with installed dependencies, and finally the exact `deliberate-cli` version pinned in this skill's `runtime.json`. If runtime metadata is invalid or no runtime can start, tell the user to reinstall or update the Deliberate plugin or Agent Skill.
 
 ## Commands
 
