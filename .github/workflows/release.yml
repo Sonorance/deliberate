@@ -162,6 +162,7 @@ jobs:
         with:
           app-id: ${{ secrets.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
       - name: Create or resume GitHub release
         env:
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
