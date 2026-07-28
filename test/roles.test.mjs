@@ -21,7 +21,7 @@ before(() => {
 });
 after(() => { rmSync(fixtureDir, { recursive: true, force: true }); });
 
-test('case lens labels are lowercase display names', () => {
+test('Case lens labels are lowercase display names', () => {
   assert.deepEqual(Object.values(CASE_LENS_LABELS), [
     'product & experience',
     'market & commercial',

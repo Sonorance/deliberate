@@ -1,0 +1,41 @@
+name: Question or support request
+description: Ask for help using Deliberate with public or synthetic context.
+title: "[Support] "
+labels:
+  - question
+body:
+  - type: markdown
+    attributes:
+      value: Issues are public. Do not include credentials, private project content, prompts, completions, customer data, or security vulnerabilities.
+  - type: textarea
+    id: goal
+    attributes:
+      label: What are you trying to accomplish?
+    validations:
+      required: true
+  - type: textarea
+    id: blocker
+    attributes:
+      label: What is blocking you?
+      description: Include the command or workflow and the smallest public or synthetic example that explains the problem.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Deliberate and Sonorance versions, if known.
+      placeholder: Deliberate 0.4.0; Sonorance 0.4.0
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Agent harness, operating system, and Node.js version.
+      placeholder: GitHub Copilot CLI; macOS 15; Node.js 22
+  - type: checkboxes
+    id: public-data
+    attributes:
+      label: Public data confirmation
+      options:
+        - label: I removed credentials, private project content, personal information, prompts, completions, and customer data.
+          required: true

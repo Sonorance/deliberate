@@ -10,7 +10,6 @@ const paths = new Set(execFileSync('tar', ['-tzf', tarball], { encoding: 'utf8' 
   .split('\n')
   .filter((path) => path.startsWith('package/') && !path.endsWith('/'))
   .map((path) => path.slice('package/'.length)));
-
 for (const required of [
   'AGENTS.md',
   'LICENSE',
@@ -18,14 +17,12 @@ for (const required of [
   'roles/skills/README.md',
   'roles/skills/prioritization.md',
   'roles/skills/win-conditions.md',
-  'skill/SKILL.md',
-  'skill/scripts/deliberate.mjs',
   'src/cli/deliberate.mjs',
   'src/engine/commands.mjs',
 ]) assert.ok(paths.has(required), `npm package is missing ${required}`);
 
 for (const path of paths) {
-  assert.doesNotMatch(path, /^(?:test\/|test-setup\.mjs|spec\/|\.github\/)/, `npm package includes ${path}`);
+  assert.doesNotMatch(path, /^(?:skills?\/|plugin\.json$|test\/|test-setup\.mjs|spec\/|\.github\/)/, `runtime-only npm package includes ${path}`);
 }
 
 process.stdout.write(`Verified immutable release tarball with ${paths.size} files.\n`);
