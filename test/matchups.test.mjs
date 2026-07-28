@@ -14,11 +14,11 @@ const { matchupPrompt, persistMatchup, matchupAsOfLabel } = await import('../src
 const { createProjectWithId } = await import('./project-fixture.mjs');
 
 let store, pid;
-before(() => { store = openVault(); pid = createProjectWithId(store, 'mp', 'MatchupProj').id; store.writeContext(pid, '# MatchupProj\n\n## Competitors\n\n- Acme — a rival.\n'); });
+before(() => { store = openVault(); pid = createProjectWithId(store, 'mp', 'MatchupProj').id; store.writeContext(pid, '# MatchupProj\n\n## Competitors\n\nSee [competitors.md](./competitors.md).\n'); });
 after(() => { store.close(); rmSync(home, { recursive: true, force: true }); });
 
 test('matchupPrompt: injects the rival, the as-of date, competitors, the head-to-head skill + Scout', async () => {
-  store.writeCompetitors(pid, '# Competitors\n\n## Acme\n\n- [Blog](https://acme.example/blog)\n');
+  store.writeCompetitors(pid, '# Competitors\n\n## Acme\n\n- **Overlap:** Direct rival.\n\n### Monitoring sources\n\n- [Blog](https://acme.example/blog)\n');
   const at = Date.UTC(2026, 6, 8);   // 2026-07-08
   const { system, user } = await matchupPrompt(store, store.getProject(pid), 'Acme', { at });
   assert.match(user, /The rival \(STRICT\)/, 'the task names the rival strictly');
@@ -29,6 +29,9 @@ test('matchupPrompt: injects the rival, the as-of date, competitors, the head-to
   assert.match(system, /Head-to-Head/i, 'the head-to-head skill is injected');
   assert.match(system, /acme\.example\/blog/, 'the competitor monitoring sources are injected');
   assert.match(system, /Scout/, 'the Scout instructions are injected');
+  assert.match(system, /case-worthy decisions/i, 'the Scout extracts only consequential unresolved decisions for case analysis');
+  assert.match(user, /## Recommended cases/, 'the output template gives recommended cases their own section');
+  assert.match(user, /triggering insight.*why analysis is valuable now.*decision it would unlock/is, 'recommended cases preserve the rationale needed for the follow-up CTA');
 });
 
 test('matchupPrompt: an untracked rival is told to research it from scratch and ask to add it', async () => {
@@ -36,7 +39,8 @@ test('matchupPrompt: an untracked rival is told to research it from scratch and 
   assert.match(user, /NOT yet tracked in competitors\.md/, 'an untracked rival is flagged');
   assert.match(user, /ask the user whether to add it/, 'the Scout is told to ask (default yes) about adding it');
   assert.match(user, /default yes/, 'the add prompt defaults to yes');
-  assert.match(user, /product\.md AND its official monitoring sources to competitors\.md/, 'both context files are updated on yes');
+  assert.match(user, /only to competitors\.md/, 'the rival is added to the canonical file only');
+  assert.doesNotMatch(user, /roster in product\.md|Competitors roster in product\.md/);
 });
 
 test('matchupPrompt: a first matchup for a rival injects NO prior-read block', async () => {

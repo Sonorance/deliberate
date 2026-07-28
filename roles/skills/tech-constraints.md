@@ -17,7 +17,7 @@
 ## Build Packet (the handoff artifact)
 - Markdown + YAML only, never JSON files. `spec.md` (acceptance criteria as YAML
   frontmatter), `context.md`, `evidence.yaml`, `prototype/index.html`.
-- Delegated to the repo's coding agent via an installed **skill file**
+- Delegated to the repo's agent via an installed **skill file**
   (AGENTS.md / .github/skills) — Deliberate never pushes code itself.
 
 ## Integration

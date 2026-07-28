@@ -1,0 +1,21 @@
+{
+  "name": "deliberate",
+  "interface": {
+    "displayName": "Deliberate"
+  },
+  "plugins": [
+    {
+      "name": "deliberate",
+      "version": "0.5.0",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

@@ -98,6 +98,12 @@ _Prioritized responses. `Borrow` ranked by value ÷ effort; `Partner` = interop 
 - **Partner / interop:** _a coexistence, migration, or partnership angle._
 - **Respond:** _a feature, spike, positioning, or pricing move — tied to the finding that motivates it._
 
+## Recommended cases
+
+_At most three consequential unresolved decisions grounded in the matchup's key actionable insights. Label each **product case**, **market case**, **strategy case**, or **platform case**, then state the triggering insight, why analysis is valuable now, and the decision it would unlock. Routine execution and bounded research stay in Opportunities; an empty list is valid._
+
+- **_[case type] · _Decision or problem_** — _triggering insight — why analyze now — decision unlocked._
+
 ## Strategy canvas
 
 _The value-curve inputs for a comparison chart. List the competing factors buyers weigh; rate each

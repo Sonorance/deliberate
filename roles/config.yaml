@@ -1,5 +1,5 @@
 # roles/config.yaml — binds each workflow stage to shared instructions plus a case-lens
-# template/skill bundle. case lenses are product, market, strategy, and platform; the
+# template/skill bundle. Case lenses are product, market, strategy, and platform; the
 # host infers one from the decision and the engine persists it on the case.
 #
 # Each stage maps to:
@@ -129,7 +129,7 @@ one-pager:
     platform: [roles/skills/case-platform.md, roles/skills/tech-constraints.md]
 
 # Briefer — the periodic landscape brief (project-scoped, NOT a case stage). Host-run in-session
-# (no model), it scans the competitive + market changes since the last brief (capped at 3 months)
+# (no model), it scans the competitive + market changes for the selected period (90-day first-run default)
 # and distills them to a concise, sourced, actionable executive brief.
 brief:
   instructions: roles/briefer/brief/instructions.md
@@ -157,7 +157,7 @@ matchup:
   skills: [roles/skills/head-to-head.md, roles/skills/jtbd.md, roles/skills/positioning.md, roles/skills/prioritization.md, roles/skills/tech-constraints.md, roles/skills/landscape-scan.md]
 
 # Initiator — sets up the project context (product.md + competitors.md + ecosystem.md) that grounds every
-# case, brief, and analysis. Host-run in-session (no model), like the other host stages. Its three output
+# Case, brief, and analysis. Host-run in-session (no model), like the other host stages. Its three output
 # templates are the context scaffolds co-located under roles/initiator/init/; `init prompt` injects
 # the instructions, and `deliberate init` writes the scaffolds the host then fills in place.
 init:

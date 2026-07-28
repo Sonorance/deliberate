@@ -6,8 +6,8 @@
 // process a test spawns with inherited env inherits it too — so nothing anywhere sends. The
 // deliberate CLI configures telemetry (surface=cli) on every run through sonorance/telemetry.mjs.
 //
-// This sets the standard DO_NOT_TRACK opt-out, so telemetry resolves to `off` by default. It does
-// NOT block a test from choosing `console` mode explicitly (SONORANCE_TELEMETRY=console still wins,
-// per resolveMode) — that path writes only the local JSONL audit trail and never touches the
-// network, which is exactly what telemetry-cli.test.mjs asserts against.
+// SONORANCE_AUTOMATION is the hard test boundary: neither passive telemetry nor explicit feedback
+// may use the network, even if a developer has SONORANCE_TELEMETRY=on in the ambient environment.
+// Console mode still wins so telemetry-cli.test.mjs can inspect payloads without sending them.
+process.env.SONORANCE_AUTOMATION = '1';
 if (!process.env.DO_NOT_TRACK) process.env.DO_NOT_TRACK = '1';

@@ -39,14 +39,14 @@ test('a project is a folder of files (no database)', () => {
   assert.ok(!existsSync(join(home, 'deliberate.db')) && !existsSync(join(home, 'arborra.db')), 'no sqlite file anywhere');
 });
 
-test('cases list newest-first by default', () => {
+test('Cases list newest-first by default', () => {
   const a = store.createCase('p', 'first', '');
   const b = store.createCase('p', 'second', '');
   store.setCase(a.id, { score: 2.1 }); store.setCase(b.id, { score: 3.8 });
   assert.deepEqual(store.listCases('p').map(s => s.title), ['second', 'first']);
 });
 
-test('case folders are date-prefixed; ids stay globally unique; the decision lens is durable', () => {
+test('Case folders are date-prefixed; ids stay globally unique; the decision lens is durable', () => {
   createProjectWithId(store, 'q', 'Q');
   const s1 = store.createCase('q', 'Cross project case', 'body text', { lens: 'strategy' });
   assert.notEqual(store.listCases('p')[0].id, s1.id, 'internal ids do not collide across projects');
@@ -347,28 +347,36 @@ test('briefs: delete removes the folder and reindex rebuilds the brief map', () 
   assert.equal(fresh.lastBriefEnd(p), null, 'a fresh store reindexes to no briefs');
 });
 
-test('init scaffolds ground the brief: product.md has Ecosystem + Market sections; competitors.md is per-competitor + change-oriented; ecosystem.md per-player', () => {
+test('init scaffolds single-source competitor and ecosystem rosters outside product.md', () => {
   const p = scaffoldContext(createProjectWithId(store, 'scaffold', 'Scaffold'));
   const prod = readFileSync(join(p.dir, 'deliberate', 'context', 'product.md'), 'utf8');
   assert.match(prod, /##\s+Competitors/, 'still has a Competitors section');
-  assert.match(prod, /##\s+Ecosystem/, 'adds an Ecosystem players roster to ground the brief market lens');
+  assert.match(prod, /##\s+Ecosystem/, 'keeps the Ecosystem reference section');
   assert.match(prod, /##\s+Market\b/, 'adds a Market section for the space (category/standards/trends)');
   assert.match(prod, /##\s+Customer voice\b/, 'adds a Customer voice section for durable feedback signals');
   assert.match(prod, /product-owned GitHub repository.*verify it is public and Issues are enabled/is, 'public enabled GitHub Issues are treated as customer evidence');
-  assert.match(prod, /Dependency.*Complement.*Channel.*Mover/s, 'classifies ecosystem players by position');
-  assert.match(prod, /only critical upstream.*whose roadmap.*could materially affect/is, 'dependency inclusion is filtered by strategic materiality');
-  assert.match(prod, /ordinary libraries.*transitive/i, 'ordinary and transitive implementation dependencies are excluded');
-  assert.match(prod, /current.*potential|potential.*current/i, 'ecosystem players carry a current/potential status');
+  assert.match(prod, /## Competitors\s+See \[competitors\.md\]\(\.\/competitors\.md\) for the canonical competitor roster, details, and monitoring sources\./);
+  assert.match(prod, /## Ecosystem\s+See \[ecosystem\.md\]\(\.\/ecosystem\.md\) for the canonical ecosystem roster, details, and monitoring sources\./);
+  const productCompetitors = prod.slice(prod.indexOf('## Competitors'), prod.indexOf('## Ecosystem'));
+  const productEcosystem = prod.slice(prod.indexOf('## Ecosystem'), prod.indexOf('## Market'));
+  assert.doesNotMatch(productCompetitors, /^[-*]\s/m, 'product.md contains no competitor roster or details');
+  assert.doesNotMatch(productEcosystem, /^[-*]\s/m, 'product.md contains no ecosystem roster or details');
   assert.match(prod, /standards? & protocols|standard \/ protocol/i, 'Market names standards/protocols to watch');
   const comp = readFileSync(join(p.dir, 'deliberate', 'context', 'competitors.md'), 'utf8');
-  assert.match(comp, /per competitor/i, 'competitors.md is scoped per competitor (not a stingy 10 total)');
+  assert.match(comp, /single source of truth/i, 'competitors.md owns the roster and details');
+  assert.match(comp, /Coverage lane.*What it is.*Overlap.*Why it matters/s, 'competitors.md captures coverage and competitor details');
   assert.doesNotMatch(comp, /Up to 10 total/, 'the old 10-total cap is gone');
+  assert.match(comp, /no numeric target or cap/i, 'the roster includes every qualified competitor');
+  assert.match(comp, /Exclude manual workflows.*spreadsheets used as workarounds.*status-quo substitutes/is, 'manual substitutes are excluded from the competitor roster');
   assert.match(comp, /changelog|release notes/i, 'prioritises change-surfacing sources');
   assert.match(comp, /landscape brief|\/deliberate brief/i, 'notes these sources ground the periodic brief');
   const eco = readFileSync(join(p.dir, 'deliberate', 'context', 'ecosystem.md'), 'utf8');
-  assert.match(eco, /per player|each ecosystem player/i, 'ecosystem.md is scoped per player');
+  assert.match(eco, /single source of truth/i, 'ecosystem.md owns the roster and details');
   assert.match(eco, /strategically material/i, 'ecosystem.md includes only strategically material players');
-  assert.match(eco, /meaningful and actionable/i, 'ecosystem monitoring is filtered for decision relevance');
+  assert.match(eco, /Adjacent \| Complement \| Channel \| Mover/, 'ecosystem.md uses the non-dependency position grammar');
+  assert.match(eco, /What it is to us.*Why it matters.*Qualification evidence.*Pattern worth learning from/s, 'ecosystem.md captures relationship, evidence, and analogy details');
+  assert.match(eco, /Complement.*before, alongside, or after.*same end-to-end workflow.*co-use or interoperability raises the value of both/is, 'ecosystem.md defines complements by shared-workflow mutual value');
+  assert.match(eco, /other markets or niches.*strategy, packaging, go-to-market motion, goals, technology, or product dynamics/is, 'ecosystem.md prompts for adjacent analogs');
   assert.match(eco, /changelog|release notes|advisor/i, 'prioritises change-surfacing sources');
   assert.match(eco, /landscape brief|\/deliberate brief/i, 'notes these ground the periodic brief');
 });
@@ -416,13 +424,16 @@ test('init links the root README to deliberate/context idempotently for agent di
   assert.match(body, /^# Existing project/m, 'existing README content is preserved');
 });
 
-test('competitor roster is a prioritized field (5–10, more if crowded), distinct from Frame\'s per-change ≤5 table', () => {
+test('competitor roster maximizes qualified coverage without manual substitutes or a numeric cap', () => {
   const p = scaffoldContext(createProjectWithId(store, 'roster', 'Roster'));
   const prod = readFileSync(join(p.dir, 'deliberate', 'context', 'product.md'), 'utf8');
-  assert.match(prod, /5[–-]10/, 'the roster targets a prioritized 5–10, not a token few');
-  assert.match(prod, /order by relevance|most-relevant first/i, 'the roster is ordered by relevance (so the brief focuses, quiet ones cost nothing)');
-  assert.match(prod, /\bEcosystem\b/, 'emerging/adjacent players are pushed to Ecosystem, keeping the roster direct');
-  assert.doesNotMatch(prod, /\(3[–-]7\)/, 'the old hard 3–7 cap is gone');
+  const comp = readFileSync(join(p.dir, 'deliberate', 'context', 'competitors.md'), 'utf8');
+  assert.match(comp, /ordered by relevance|most direct first/i, 'the roster is ordered by relevance');
+  assert.match(comp, /no numeric target or cap/i, 'the roster is not truncated to an arbitrary count');
+  assert.match(comp, /direct category rivals.*cross-category commercial alternatives.*suite\/platform overlap.*emerging, niche, regional, or open-source/is, 'the scaffold covers every discovery lane');
+  assert.match(comp, /Exclude manual workflows.*status-quo substitutes/is, 'manual substitutes are not roster entries');
+  assert.match(prod, /See \[competitors\.md\]/, 'product context only references the roster');
+  assert.doesNotMatch(prod, /numeric target|manual workflows|cross-category commercial alternatives/i, 'product.md does not duplicate roster guidance');
 });
 
 test('#writeAnalysis reflows host-written hard-wrapped prose (summary lede + Key highlights)', () => {

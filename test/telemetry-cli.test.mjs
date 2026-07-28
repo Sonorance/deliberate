@@ -34,6 +34,11 @@ const auditEvents = (home) => {
   return readFileSync(p, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
 };
 const types = (home) => auditEvents(home).map((e) => e.type);
+const caseIdFrom = (output) => {
+  const match = output.replace(/\x1B\[[0-9;]*m/g, '').match(/^case ([a-f0-9]+) ·/m);
+  assert.ok(match, 'case creation prints its id');
+  return match[1];
+};
 
 test('deliberate CLI: `feedback` sends one verbatim record and does not duplicate it into passive telemetry', () => {
   const home = freshHome(), repo = freshRepo();
@@ -69,20 +74,20 @@ test('deliberate CLI: `feedback` on an idea nudges problem-framing when flagged,
 test('deliberate CLI: the funnel emits the suite-wide value moments (case → stage → completed → scored → prototype)', () => {
   const home = freshHome(), repo = freshRepo();
   runTel(repo, home, ['init']);
-  runTel(repo, home, ['case', 'Bulk export to CSV for busy teams']);
+  const id = caseIdFrom(runTel(repo, home, ['case', 'Bulk export to CSV for busy teams']));
 
   const art = join(repo, 'art.md');
   for (const st of ['frame', 'shape', 'launch']) {
     writeFileSync(art, `# ${st}\n\nGrounded ${st}.`);
-    runTel(repo, home, ['case', 'analysis', 'save', '--file', art]);
+    runTel(repo, home, ['case', 'analysis', 'save', id, '--file', art]);
   }
   writeFileSync(art, '# Score\n\nNo numeric score was produced.');
-  runTel(repo, home, ['case', 'score', 'save', '--model', 'gpt-5.4', '--independent', '--file', art]);
+  runTel(repo, home, ['case', 'score', 'save', id, '--model', 'gpt-5.4', '--independent', '--file', art]);
   assert.equal(types(home).filter((x) => x === 'case.scored').length, 0, 'an unparseable score is not a value moment');
   writeFileSync(art, '# Score\n\n**Score:** 7.5\n- reason one\n- reason two');
-  runTel(repo, home, ['case', 'score', 'save', '--model', 'gpt-5.4', '--independent', '--file', art]);
+  runTel(repo, home, ['case', 'score', 'save', id, '--model', 'gpt-5.4', '--independent', '--file', art]);
   writeFileSync(art, '# Prototype\n\n```html\n<!DOCTYPE html><html><body><h1>proto</h1></body></html>\n```');
-  runTel(repo, home, ['case', 'prototype', 'save', '--file', art]);
+  runTel(repo, home, ['case', 'prototype', 'save', id, '--file', art]);
 
   const t = types(home);
   for (const need of ['case.created', 'case.stage.completed', 'case.completed', 'case.scored', 'prototype.built'])
@@ -100,7 +105,7 @@ test('deliberate CLI: the funnel emits the suite-wide value moments (case → st
   assert.deepEqual(completed.props, { lens: 'product' }, 'case.completed records only the durable lens, not a pretend Score result');
   assert.equal(scored.props.refreshed, false, 'the first score is marked as a fresh value moment');
   writeFileSync(art, '# Score\n\n**Score:** 7.5\n- reason one\n- reason two');
-  runTel(repo, home, ['case', 'score', 'save', '--model', 'claude-opus-4.8', '--file', art]);
+  runTel(repo, home, ['case', 'score', 'save', id, '--model', 'claude-opus-4.8', '--file', art]);
   const rescored = auditEvents(home).filter((e) => e.type === 'case.scored').at(-1);
   assert.equal(rescored.props.refreshed, true, 'a repeated score is marked as a refresh, not another value moment');
   assert.equal(rescored.props.independent, false, 'a same-session fallback is visible as a non-independent guardrail');
