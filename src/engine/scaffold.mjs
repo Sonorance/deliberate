@@ -17,7 +17,7 @@ import { contextFile, competitorsFile, ecosystemFile } from 'sonorance/plugins/d
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const repoFile = (rel) => join(REPO_ROOT, rel);
 
-const contextScaffold = (kind, subs = {}) => {
+export const contextScaffold = (kind, subs = {}) => {
   const rel = agentConfig('init').templates[kind];   // path from roles/config.yaml
   const text = readFileSync(repoFile(rel), 'utf8');
   return text.replace(/\{\{(\w+)\}\}/g, (_m, k) => subs[k] ?? '');

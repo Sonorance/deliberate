@@ -43,7 +43,7 @@ frame:
     market:     roles/analyst/frame/output-template-market.md
     strategy:   roles/analyst/frame/output-template-strategy.md
     platform:   roles/analyst/frame/output-template-platform.md
-  skills: []
+  skills: [roles/skills/source-access.md]
   lens_skills:
     product:  [roles/skills/case-product.md, roles/skills/jtbd.md]
     market:   [roles/skills/case-market.md, roles/skills/positioning.md, roles/skills/jtbd.md]
@@ -106,7 +106,7 @@ prototype:
   templates:
     product:    roles/prototyper/prototype/output-template-product.md
     market:     roles/prototyper/prototype/output-template-market.md
-  skills: [roles/skills/tech-constraints.md]
+  skills: [roles/skills/tech-constraints.md, roles/skills/source-access.md]
   lens_skills:
     product: [roles/skills/case-product.md, roles/skills/ux-principles.md, roles/skills/jtbd.md, roles/skills/win-conditions.md]
     market:  [roles/skills/case-market.md, roles/skills/positioning.md, roles/skills/ux-principles.md, roles/skills/jtbd.md]
@@ -135,7 +135,7 @@ brief:
   instructions: roles/briefer/brief/instructions.md
   templates:
     default:    roles/briefer/brief/output-template.md
-  skills: [roles/skills/landscape-scan.md]
+  skills: [roles/skills/landscape-scan.md, roles/skills/source-access.md]
 
 # Reporter — the periodic product readout (project-scoped, NOT a case stage). Host-run
 # in-session over the project's configured metrics, customer evidence, and product context.
@@ -143,7 +143,7 @@ readout:
   instructions: roles/reporter/readout/instructions.md
   templates:
     default:    roles/reporter/readout/output-template.md
-  skills: [roles/skills/product-readout.md]
+  skills: [roles/skills/product-readout.md, roles/skills/source-access.md]
 
 # Scout — the single-competitor head-to-head (project-scoped, NOT a case stage). Host-run in-session
 # (no model, no gate), it researches ONE named rival and writes a grounded, point-in-time matchup —
@@ -154,7 +154,7 @@ matchup:
   instructions: roles/scout/matchup/instructions.md
   templates:
     default:    roles/scout/matchup/output-template.md
-  skills: [roles/skills/head-to-head.md, roles/skills/jtbd.md, roles/skills/positioning.md, roles/skills/prioritization.md, roles/skills/tech-constraints.md, roles/skills/landscape-scan.md]
+  skills: [roles/skills/head-to-head.md, roles/skills/jtbd.md, roles/skills/positioning.md, roles/skills/prioritization.md, roles/skills/tech-constraints.md, roles/skills/landscape-scan.md, roles/skills/source-access.md]
 
 # Initiator — sets up the project context (product.md + competitors.md + ecosystem.md) that grounds every
 # Case, brief, and analysis. Host-run in-session (no model), like the other host stages. Its three output
@@ -166,7 +166,7 @@ init:
     product:     roles/initiator/init/output-template-product.md
     competitors: roles/initiator/init/output-template-competitors.md
     ecosystem:   roles/initiator/init/output-template-ecosystem.md
-  skills: [roles/skills/jtbd.md, roles/skills/landscape-scan.md, roles/skills/positioning.md, roles/skills/metrics.md]
+  skills: [roles/skills/jtbd.md, roles/skills/landscape-scan.md, roles/skills/positioning.md, roles/skills/metrics.md, roles/skills/source-access.md]
 
 # There are no `build`, `title`, `describe`, or `contextualize` engine agents. Titling and
 # project-context derivation are done by the HOST in-session (via `retitle` and `context set`

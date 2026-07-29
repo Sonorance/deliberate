@@ -15,4 +15,4 @@ export { briefWindow, briefPrompt, persistBrief, briefPeriodLabel, BRIEF_STAGE }
 export { readoutPeriod, readoutPrompt, persistReadout, readoutPeriodLabel, READOUT_STAGE } from './readouts.mjs';
 export { normalizeTrendChartSpec, renderTrendChart, renderTrendChartFile, loadReadoutCharts } from './readout-charts.mjs';
 export { matchupPrompt, persistMatchup, matchupAsOfLabel, MATCHUP_STAGE } from './matchups.mjs';
-export { initPrompt, INIT_STAGE } from './init.mjs';
+export { initPrompt, initMode, INIT_STAGE } from './init.mjs';

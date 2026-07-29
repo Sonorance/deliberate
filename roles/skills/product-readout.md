@@ -4,14 +4,14 @@
 
 ## 1. Establish coverage before drawing conclusions
 
-Read every relevant attached source the harness can access: product analytics, warehouses or exports, billing and commercial data, customer feedback, research, release and experiment logs, incidents, and the repo. For each expected source, establish:
+Enumerate and preflight every configured attached source before deciding relevance: product analytics, warehouses or exports, billing and commercial data, customer feedback, research, release and experiment logs, incidents, and the repo. Before treating a configured source as unavailable, apply `source-access`: identify the underlying API/query, reuse approved connector or provider credentials, verify account context, obtain approval for interactive login or switching, retry, and offer an official export fallback. For each configured source, establish:
 
 - whether it was accessible;
 - how fresh it is relative to the reporting period;
 - what part of the product picture it covers;
 - whether missing or partial coverage materially limits a conclusion.
 
-State material coverage limits in the report. Never turn an inaccessible source into "no change" or silently substitute general knowledge for project evidence.
+State material coverage limits in the report. Never turn an inaccessible source into "no change," stop at the first authentication failure, or silently substitute general knowledge for project evidence.
 
 ## 2. Use one completed reporting period
 
@@ -84,6 +84,7 @@ Recommend only actions or decisions warranted by the findings. Each action state
 ## Anti-patterns
 
 - A polished report built from inaccessible or stale core sources.
+- A source declared unavailable after a login failure without checking existing approved credentials, account context, permission, retry, or export fallback.
 - Changes without reporting-period and comparable values and a named comparison.
 - Conclusions influenced by a week, month, quarter, or other reporting period that has not fully closed.
 - A reporting or comparison period that changes because the readout ran early, late, or after a gap.

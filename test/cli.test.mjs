@@ -627,10 +627,33 @@ test('CLI `init prompt` injects the Initiator method + the context scaffolds for
   assert.doesNotMatch(out, /do-not-attach-local\.md/, 'legacy in-project source entries are not injected');
   assert.match(out, /\bEcosystem\b/, 'the injected method covers the Ecosystem section');
   assert.match(out, /deliberate\/context\/product\.md/, 'the task points at the product.md file to edit');
+  assert.match(out, /Init mode: create/, 'untouched current-version scaffolds stay in create mode');
   const readme = readFileSync(join(repo, 'README.md'), 'utf8');
   assert.match(readme, /Product context for agents/);
   assert.match(readme, /deliberate\/context\//);
   assert.match(out, /deliberate\/context\/competitors\.md/, 'and the competitors.md file');
   assert.match(out, /deliberate\/context\/ecosystem\.md/, 'and the ecosystem.md file');
+
+  const productFile = join(repo, 'deliberate', 'context', 'product.md');
+  const scaffoldHeading = readFileSync(productFile, 'utf8').match(/^# .+ — project context$/m)?.[0];
+  assert.ok(scaffoldHeading, 'the scaffold has a resolved project heading');
+  writeFileSync(productFile, `${readFileSync(productFile, 'utf8')}\nUser-authored partial context.\n`);
+  assert.match(runIn(repo, 'init'), /context refresh prepared/i, 'any edit to a scaffold switches init to refresh mode');
+
+  writeFileSync(join(repo, 'deliberate', 'context', 'product.md'), '# Existing product context\n\n## Overview\n\nKeep this grounded user edit.\n');
+  writeFileSync(join(repo, 'deliberate', 'context', 'competitors.md'), '# Competitors\n\n## Existing Rival\n');
+  writeFileSync(join(repo, 'deliberate', 'context', 'ecosystem.md'), '# Ecosystem\n\n## Existing Complement\n');
+  const prepared = runIn(repo, 'init');
+  assert.match(prepared, /context refresh prepared/i, 'a repeated init prepares a refresh rather than resetting context');
+  assert.match(readFileSync(join(repo, 'deliberate', 'context', 'product.md'), 'utf8'), /Keep this grounded user edit/, 're-init preserves current context before the host refreshes it');
+  const refresh = runIn(repo, 'init', 'prompt');
+  assert.match(refresh, /Init mode: refresh/);
+  assert.match(refresh, /latest installed method/i);
+  assert.match(refresh, /Latest context contracts from this installed Deliberate version/);
+  assert.match(refresh, /Keep this grounded user edit/, 'existing context is injected as refresh evidence');
+  assert.match(refresh, /latest product\.md contract/);
+  assert.ok(refresh.includes(scaffoldHeading), 'the refresh contract preserves the resolved project heading');
+  assert.doesNotMatch(refresh, /\{\{name\}\}/, 'refresh contracts expose no unresolved template variables');
+  assert.match(refresh, /never reset them to scaffolds/i);
   rmSync(repo, { recursive: true, force: true });
 });

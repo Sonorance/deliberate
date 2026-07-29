@@ -9,7 +9,7 @@
  * outputs, the generated docs, and this dispatcher in sync.
  */
 import { openVault } from 'sonorance/plugins/deliberate/vault.mjs';
-import { setCurrentProject, openProjectVault, stagePrompt, persistStage, onepagerPrompt, persistOnepager, scorePrompt, persistScore, prototypePrompt, persistPrototype, briefPrompt, persistBrief, briefPeriodLabel, readoutPrompt, persistReadout, readoutPeriodLabel, renderTrendChartFile, loadReadoutCharts, matchupPrompt, persistMatchup, matchupAsOfLabel, initPrompt } from '../engine/service.mjs';
+import { setCurrentProject, openProjectVault, stagePrompt, persistStage, onepagerPrompt, persistOnepager, scorePrompt, persistScore, prototypePrompt, persistPrototype, briefPrompt, persistBrief, briefPeriodLabel, readoutPrompt, persistReadout, readoutPeriodLabel, renderTrendChartFile, loadReadoutCharts, matchupPrompt, persistMatchup, matchupAsOfLabel, initPrompt, initMode } from '../engine/service.mjs';
 import { STAGES } from 'sonorance/plugins/deliberate/stages.mjs';
 import { scoreClass, STATE } from 'sonorance/plugins/deliberate/domain.mjs';
 import { CLI_COMMANDS, SKILL_COMMANDS } from '../engine/commands.mjs';
@@ -294,7 +294,7 @@ export const cmds = {
 
   // Set up the CURRENT folder (a repo root) as a project vault: the context in
   // deliberate/context/, decision records under deliberate/. Name = folder. Idempotent.
-  // `init prompt` prints the Initiator prompt (method + the context scaffolds to fill).
+  // `init prompt` prints the latest Initiator method used to create or refresh context.
   async init([sub]) {
     const abs = process.cwd();
     const p = openProjectVault(store, abs);
@@ -304,18 +304,19 @@ export const cmds = {
     // and any hidden dot-subfolder written under `deliberate/`. Never creates a .gitignore.
     const ignored = ensureGitignore(abs, vaultIgnoreEntries(abs));
     if (sub === 'prompt') {
-      const { system, user } = await initPrompt(store, p);
-      return P(`MODEL: (produce in THIS session — you are the Initiator; read project files + project-external sources and edit the context files)\n===== SYSTEM =====\n${system}\n\n===== TASK =====\n${user}`);
+      const { system, user, mode } = await initPrompt(store, p);
+      return P(`MODEL: (produce in THIS session — you are the Initiator; ${mode === 'refresh' ? 'refresh existing context with the latest installed method' : 'create grounded context'} from project files + project-external sources)\n===== SYSTEM =====\n${system}\n\n===== TASK =====\n${user}`);
     }
-    P(`${c.g}✓${c.x} Deliberate initialized in ${abs}`);
+    const mode = initMode(store, p);
+    P(`${c.g}✓${c.x} Deliberate ${mode === 'refresh' ? 'context refresh prepared' : 'initialized'} in ${abs}`);
     P(`  project: ${c.w}${p.name}${c.x} ${c.d}(${p.id})${c.x}`);
     P(`  ${c.d}context lives in deliberate/context/product.md${c.x}; cases land under ${c.d}deliberate/cases/<date>-<slug>/${c.x}`);
     P(`  ${c.d}the root README points agents to deliberate/context/${c.x}`);
     P(`  ${c.d}platform config (shared, cross-skill) is in the hidden ${c.x}${c.w}.sonorance/${c.x}${c.d} sibling${c.x}`);
     if (ignored.length) P(`  ${c.d}gitignored machine state: ${ignored.join(', ')}${c.x}`);
-    P(`  next → add durable material outside this folder: ${c.w}deliberate source add <location>${c.x}`);
-    P(`         get the method: ${c.w}deliberate init prompt${c.x} ${c.d}(then fill product.md + competitors.md + ecosystem.md)${c.x}`);
-    P(`         first landscape: ${c.w}deliberate brief prompt${c.x}`);
+    if (mode === 'create') P(`  next → add durable material outside this folder: ${c.w}deliberate source add <location>${c.x}`);
+    P(`         ${mode === 'refresh' ? 'apply the latest context method' : 'get the method'}: ${c.w}deliberate init prompt${c.x} ${c.d}(then ${mode === 'refresh' ? 'refresh' : 'fill'} product.md + competitors.md + ecosystem.md)${c.x}`);
+    if (mode === 'create') P(`         first landscape: ${c.w}deliberate brief prompt${c.x}`);
   },
 
   // Start the local app: the web UI (src/ui) served over http by the
