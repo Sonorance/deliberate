@@ -43,6 +43,8 @@ test('Analyst frame prompt: jtbd skill content + the frame template are injected
   assert.match(frame.system, /## Skills/);
   assert.match(frame.system, /Jobs-to-be-Done \(JTBD\)/, 'jtbd skill CONTENT injected from roles/skills/jtbd.md');
   assert.match(frame.system, /### jtbd/, 'skill heading is the file basename');
+  assert.match(frame.system, /### source-access/, 'case evidence uses the shared authenticated-source method');
+  assert.match(frame.system, /Never silently use an unrelated cached account/i, 'case grounding verifies account context');
   assert.match(frame.system, /product & experience case/, 'the product lens method is injected');
   assert.match(frame.system, /without recommending an answer yet/i, 'frame does not choose the answer');
   assert.match(frame.user, /----- OUTPUT TEMPLATE -----/);

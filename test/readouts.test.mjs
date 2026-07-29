@@ -96,6 +96,14 @@ test('readoutPrompt makes one completed reporting period the ground for the whol
   assert.match(system, /metrics\.example\/dashboard/, 'configured evidence location is included');
   assert.match(system, /product readout/i, 'the product readout method is injected');
   assert.match(system, /Reporter/, 'the Reporter instructions are injected');
+  assert.match(system, /Authenticated source access/, 'the shared source-access method is injected');
+  assert.match(system, /Enumerate and preflight every configured source before relevance filtering/i, 'readouts preflight the complete configured source set');
+  assert.match(system, /existing harness connector or MCP integration/i, 'approved existing connectors are attempted first');
+  assert.match(system, /ask for focused user approval before starting.*login/is, 'interactive login is approval-gated');
+  assert.match(system, /Retry the original minimal read-only query/i, 'the source query is retried after access remediation');
+  assert.match(system, /Only after the relevant approved paths are exhausted/i, 'a first auth failure is not immediately a Data gap');
+  assert.match(system, /Unauthenticated or expired.*Authenticated but unauthorized.*Wrong account context/is, 'access failures receive distinct remediation');
+  assert.match(system, /Never ask the user to paste a password, access token/i, 'secrets are not requested in chat');
   assert.match(system, /one completed reporting period grounds the entire report/i, 'all evidence uses one completed period');
   assert.match(system, /percentage-point change/i, 'rate changes use percentage points');
   assert.match(user, /FIRST readout/, 'the first reporting period is explicit');
