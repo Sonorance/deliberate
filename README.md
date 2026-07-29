@@ -56,6 +56,8 @@ A typical first journey establishes the product and market baseline before creat
 
 The first brief defaults to the previous 90 days. Add a natural-language period when needed, such as `/deliberate brief for the last 30 days`.
 
+Run `/deliberate init` again whenever the product changes materially or after updating Deliberate. A repeated init preserves the current context as grounded, user-editable input, rereads the project and configured sources, and refreshes `product.md`, `competitors.md`, and `ecosystem.md` through the latest installed Initiator method and templates. It adds newly required context fields without resetting files to scaffolds or discarding supported edits.
+
 Run `deliberate serve --open` to review the generated Markdown, inspect diffs, and leave anchored comments in Sonorance. The operating system selects an available port by default; use `--port <n>` only when you need a fixed one. Add `--file "<project-relative-path>"` to open a specific case, brief, readout, or matchup immediately. Project-required commands operate only in an initialized current working directory, and `deliberate init` installs the project-local `/sonorance` review skill used by the UI's address-comments guidance.
 
 ## Analyze any idea or signal
@@ -95,6 +97,8 @@ deliberate comment <commentId> resolve [--note "<text>"] [--revised]
 ```
 
 Project files are automatic grounding: `init` reads relevant files inside the current folder directly. `source add` records durable resources outside that folder; these may be internal/private systems such as dashboards, document collections, repositories, CRM/support/feedback systems, research repositories, or issue trackers, as well as public sources. Init curates recurring signal and maintained canonical context rather than isolated feedback, individual cases/interviews, point-in-time exports, or other small observations. In-project files are rejected rather than recorded in `.sonorance/sources.md`.
+
+Source-consuming workflows establish access before declaring evidence unavailable. They prefer underlying APIs and saved queries, reuse approved harness connectors or provider credential chains, verify the active account context, ask before interactive login or identity switching, retry the read-only query, and offer official exports as a fallback. Authentication failures are distinguished from authorization, wrong-account, MFA, missing-tooling, private-network, and evidence-quality failures. Credentials remain in provider-managed caches, keychains, connectors, environments/secret stores, or workload identity; Deliberate never asks users to paste them into chat or writes them to project files, prompts, artifacts, logs, or telemetry. `.sonorance/sources.md` and metric definitions may contain only repository-safe access hints.
 
 Project context is split to keep edits single-sourced: `product.md` contains core product context and links only from its Competitors and Ecosystem sections; `competitors.md` owns the complete competitor roster, details, and monitoring sources; `ecosystem.md` owns the complete ecosystem roster, details, and monitoring sources. Every workflow receives all three files.
 

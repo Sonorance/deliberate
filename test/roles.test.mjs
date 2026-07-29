@@ -19,6 +19,13 @@ before(() => {
   original = readFileSync(realYaml, 'utf8');
   writeFileSync(yaml, original);
 });
+
+test('authenticated source access reaches every workflow that retrieves external evidence', () => {
+  for (const stage of ['init', 'frame', 'brief', 'readout', 'matchup', 'prototype'])
+    assert.ok(skillsFor(stage).includes('roles/skills/source-access.md'), `${stage} applies authenticated source access`);
+  for (const stage of ['score', 'one-pager'])
+    assert.ok(!skillsFor(stage).includes('roles/skills/source-access.md'), `${stage} only evaluates or distils already-grounded records`);
+});
 after(() => { rmSync(fixtureDir, { recursive: true, force: true }); });
 
 test('Case lens labels are lowercase display names', () => {
@@ -35,7 +42,7 @@ test('the Analyst stages select the product lens by default', () => {
   assert.equal(frame.model, 'claude-opus-4.8', 'host-run stages inherit the default model (for the headless path)');
   assert.equal(frame.instructions, 'roles/analyst/frame/instructions.md');
   assert.equal(frame.templates.default, 'roles/analyst/frame/output-template-product.md');
-  assert.deepEqual(frame.skills, ['roles/skills/case-product.md', 'roles/skills/jtbd.md']);
+  assert.deepEqual(frame.skills, ['roles/skills/source-access.md', 'roles/skills/case-product.md', 'roles/skills/jtbd.md']);
 
   const shape = agentConfig('shape');
   assert.equal(shape.instructions, 'roles/analyst/shape/instructions.md');
@@ -189,7 +196,7 @@ test('the Briefer (brief) is a HOST-RUN role under roles/briefer/, with the land
   assert.equal(brief.context, null, 'host-run: no context tier');
   assert.equal(brief.instructions, 'roles/briefer/brief/instructions.md');
   assert.equal(brief.templates.default, 'roles/briefer/brief/output-template.md');
-  assert.deepEqual(brief.skills, ['roles/skills/landscape-scan.md'], 'the Briefer applies the landscape-scan method');
+  assert.deepEqual(brief.skills, ['roles/skills/landscape-scan.md', 'roles/skills/source-access.md'], 'the Briefer applies landscape scanning and authenticated source access');
   const repo = join(dirname(fileURLToPath(import.meta.url)), '..');
   assert.ok(existsSync(join(repo, 'roles', 'briefer', 'brief', 'instructions.md')), 'the Briefer playbook exists');
   assert.ok(existsSync(join(repo, 'roles', 'skills', 'landscape-scan.md')), 'the landscape-scan skill exists');
@@ -200,8 +207,8 @@ test('the Initiator (init) is a HOST-RUN role under roles/initiator/, with two o
   assert.equal(init.model, 'claude-opus-4.8', 'host-run: inherits the default model (no per-role model)');
   assert.equal(init.effort, null, 'host-run: no effort configured');
   assert.equal(init.instructions, 'roles/initiator/init/instructions.md');
-  assert.deepEqual(init.skills, ['roles/skills/jtbd.md', 'roles/skills/landscape-scan.md', 'roles/skills/positioning.md', 'roles/skills/metrics.md'],
-    'the Initiator applies jtbd (personas/jobs), landscape-scan (competitors/market), positioning (value prop), and metrics');
+  assert.deepEqual(init.skills, ['roles/skills/jtbd.md', 'roles/skills/landscape-scan.md', 'roles/skills/positioning.md', 'roles/skills/metrics.md', 'roles/skills/source-access.md'],
+    'the Initiator applies product methods plus authenticated source access');
   // init has THREE output templates (declared in config.yaml), and NO `default`.
   assert.equal(init.templates.product, 'roles/initiator/init/output-template-product.md');
   assert.equal(init.templates.competitors, 'roles/initiator/init/output-template-competitors.md');
@@ -249,7 +256,7 @@ test('known stages require complete bindings to existing files', () => {
     assert.throws(() => agentConfig('score', yaml), /"score\.model" is required/);
     writeFileSync(yaml, original.replace('  reasoning_effort: high', '  reasoning_effort: bananas'));
     assert.throws(() => agentConfig('score', yaml), /"score\.reasoning_effort" is invalid/);
-    writeFileSync(yaml, original.replace('  skills: []\n', '  model: gpt-5.4\n  skills: []\n'));
+    writeFileSync(yaml, original.replace('  skills: [roles/skills/source-access.md]\n', '  model: gpt-5.4\n  skills: [roles/skills/source-access.md]\n'));
     assert.throws(() => agentConfig('frame', yaml), /unexpected "frame\.model"/);
     writeFileSync(yaml, original.replace('    strategy: [roles/skills/case-strategy.md]\n', ''));
     assert.throws(() => agentConfig('frame', yaml), /"frame\.lens_skills\.strategy" must be a list/);

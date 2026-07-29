@@ -159,10 +159,39 @@ test('SKILL.md `readout` grounds all analysis in one completed, overridable repo
   assert.match(readout, /save rejects a mismatched `Period:` line/i, 'the artifact cannot drift from its persisted period metadata');
 });
 
+test('SKILL.md applies secure authenticated source recovery across source-consuming workflows', () => {
+  const body = readFileSync(join(repoRoot, 'skills/deliberate/SKILL.md'), 'utf8');
+  const access = body.slice(body.indexOf('## Authenticated source access'), body.indexOf('## Commands'));
+  for (const workflow of ['init', 'case', 'brief', 'readout', 'matchup', 'prototype', 'address'])
+    assert.match(access, new RegExp(`\\b${workflow}\\b`), `the shared policy covers ${workflow}`);
+  assert.match(access, /official API, saved query, warehouse, repository, or export/i);
+  assert.match(access, /existing harness connector or MCP integration/i);
+  assert.match(access, /authenticated CLI, SDK credential chain, workload identity/i);
+  assert.match(access, /user-approved official browser\/device\/SSO\/CLI login/i);
+  assert.match(access, /Verify the safe active identity\/context/i);
+  assert.match(access, /Retry the original minimal read-only query/i);
+  assert.match(access, /Only after relevant approved paths are exhausted/i);
+  assert.match(access, /missing or expired authentication.*authenticated but unauthorized.*wrong account context/is);
+  assert.match(access, /Never ask the user to paste a password, access token/i);
+  assert.match(access, /Never write credentials to `.sonorance\/sources\.md`/i);
+});
+
+test('SKILL.md reruns init as an all-up latest-method context refresh', () => {
+  const body = readFileSync(join(repoRoot, 'skills/deliberate/SKILL.md'), 'utf8');
+  const init = body.slice(body.indexOf('## `init`'), body.indexOf('## `case <idea>`'));
+  assert.match(init, /Use the mode reported by `LAUNCHER init`/i);
+  assert.match(init, /untouched current-version scaffolds.*remain.*create mode.*partial edit or older-version context uses refresh mode/is);
+  assert.match(init, /latest installed context contracts/i);
+  assert.match(init, /preserve supported user-authored information/i);
+  assert.match(init, /never reset them to scaffolds/i);
+  assert.match(init, /show only material changes/i);
+  assert.match(init, /Open the refreshed project context in Sonorance for review/i);
+});
+
 test('SKILL.md requires workflow-specific, default-positive follow-up CTAs', () => {
   const body = readFileSync(join(repoRoot, 'skills/deliberate/SKILL.md'), 'utf8');
   const routing = body.slice(body.indexOf('Every substantive workflow'), body.indexOf('## `init`'));
-  for (const next of ['`init` → run the first brief', 'product/market `case` → build the appropriate prototype', 'strategy/platform `case` → review the completed decision record in Sonorance', '`prototype` → open it for review', '`source add|remove` → refresh affected project context', '`address` → review the resolved changes in Diff mode'])
+  for (const next of ['`init` in create mode → run the first brief', 'product/market `case` → build the appropriate prototype', 'strategy/platform `case` → review the completed decision record in Sonorance', '`prototype` → open it for review', '`source add|remove` → refresh affected project context', '`address` → review the resolved changes in Diff mode'])
     assert.match(routing, new RegExp(next.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `documents the ${next} handoff`);
   assert.match(routing, /`brief`, `readout`, and `matchup`.*open the saved result for review in Sonorance while running the recommended cases/is);
   assert.match(routing, /default yes/g, 'substantive CTAs are default-positive');
@@ -254,6 +283,8 @@ test('init records one durable readout period contract, never snapshot baselines
   }
   assert.doesNotMatch(template, /current baseline\/date|target\/date/i, 'the scaffold has no volatile value slots');
   assert.match(template, /Do not copy current values, dated baselines, targets/i);
+  assert.match(template, /repository-safe access instructions/i);
+  assert.match(template, /Never include a credential/i);
   assert.match(metrics, /previous readout artifact is never the metric baseline/i);
 });
 
@@ -270,14 +301,14 @@ test('SKILL.md `init` reads project files directly and discovers only durable pr
   assert.match(step2, /Accept fewer—or none—when the project files and a smaller authoritative set are sufficient/i, 'allows fewer stronger sources');
   assert.match(step2, /never pad with weak/i, 'forbids noisy padding');
   assert.match(step2, /Confirm before adding/i, 'has a confirmation gate before adding discovered sources');
-  assert.match(step2, /every auto-discovered project-external candidate/i, 'shows the complete candidate list');
+  assert.match(step2, /every newly auto-discovered project-external candidate/i, 'shows the complete new candidate list');
   assert.match(step2, /Never include an in-project file/i, 'keeps project files out of the candidate list');
   assert.match(step2, /- <location> - <source description>/, 'uses the exact readable source bullet shape');
   assert.match(step2, /Do not collapse the list into counts or prose/i, 'forbids incomplete summary-only confirmation');
-  assert.match(step2, /alongside the manually supplied sources/i, 'option: add alongside manually supplied sources');
-  assert.match(step2, /keep only the ones they gave/i, 'option: keep only the manual sources');
+  assert.match(step2, /alongside the manually supplied or existing sources/i, 'option: add alongside current sources');
+  assert.match(step2, /keep only the current set/i, 'option: keep the current sources');
   assert.match(step2, /change the list/i, 'option: change the proposed list');
-  assert.match(step2, /never drop or overwrite/i, 'the manual sources are never dropped');
+  assert.match(step2, /never drop or overwrite manually provided or existing ones without approval/i, 'current sources are never dropped without approval');
   assert.match(step2, /Public GitHub Issues are customer voice/i, 'public product-owned Issues are considered as customer evidence');
   assert.match(step2, /verify whether it is publicly accessible and Issues are enabled/i, 'Issues inclusion requires verification');
 });
