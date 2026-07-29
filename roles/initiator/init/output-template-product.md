@@ -90,12 +90,12 @@ _The few durable, decision-useful sources where customer needs, friction, reques
 
 ## Metrics & traction
 
-_The durable semantic contract for how product performance should be read. Define the project's readout cadence and timezone, then what each decision-relevant metric means and how it aggregates over that shared period. Do not copy current values, dated baselines, targets, or other snapshots here: init may run once, while those values belong to the live source._
+_The durable semantic contract for how product performance should be read. Define the project's readout cadence and timezone, then what each decision-relevant metric means and how it aggregates over that shared period. When safe to commit, include non-secret access instructions such as provider/source type, preferred API or saved query, expected account context, required read-only scope, and credential-handle name. Never include a credential. Do not copy current values, dated baselines, targets, or other snapshots here: init may run once, while those values belong to the live source._
 
 - _Readout period — cadence and calendar alignment; timezone. Default: completed calendar week, Monday–Sunday, in the project's timezone. Every metric and evidence source uses this period; comparison is the immediately preceding equivalent completed period._
-- _North-star metric — definition; source/query; desired direction; aggregation over the readout period; important segments._
-- _Key metric — definition; source/query; desired direction; aggregation over the readout period; important segments._
-- _Guardrail — definition; source/query; undesired direction; aggregation over the readout period._
+- _North-star metric — definition; source/query; desired direction; aggregation over the readout period; important segments; repository-safe access instructions when needed._
+- _Key metric — definition; source/query; desired direction; aggregation over the readout period; important segments; repository-safe access instructions when needed._
+- _Guardrail — definition; source/query; undesired direction; aggregation over the readout period; repository-safe access instructions when needed._
 
 ## Strategy & principles
 

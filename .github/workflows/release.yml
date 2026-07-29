@@ -156,21 +156,35 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: distribution-package
+      - name: Mint release token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
       - name: Create or resume GitHub release
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           tag="v${{ needs.build.outputs.version }}"
+          sha="${{ needs.build.outputs.sha }}"
+          # Ensure the tag exists at the release commit before creating the release.
+          # Creating the ref explicitly surfaces a precise error if tag creation is
+          # ever restricted, instead of an opaque failure inside `gh release create`,
+          # and lets the release be created from the existing tag with --verify-tag.
           tag_type=$(gh api "repos/$GH_REPO/git/ref/tags/$tag" --jq .object.type 2>/dev/null || true)
-          if [ -n "$tag_type" ]; then
+          if [ -z "$tag_type" ]; then
+            gh api --method POST "repos/$GH_REPO/git/refs" -f ref="refs/tags/$tag" -f sha="$sha" >/dev/null
+          else
             tag_sha=$(gh api "repos/$GH_REPO/git/ref/tags/$tag" --jq .object.sha)
             if [ "$tag_type" = "tag" ]; then
               tag_sha=$(gh api "repos/$GH_REPO/git/tags/$tag_sha" --jq .object.sha)
             fi
-            if [ "$tag_sha" != "${{ needs.build.outputs.sha }}" ]; then
-              echo "::error::$tag points to $tag_sha, not ${{ needs.build.outputs.sha }}."
+            if [ "$tag_sha" != "$sha" ]; then
+              echo "::error::$tag points to $tag_sha, not $sha."
               exit 1
             fi
           fi
@@ -179,7 +193,7 @@ jobs:
           else
             args=()
             if [ "${{ needs.build.outputs.prerelease }}" = "true" ]; then args+=(--prerelease); else args+=(--latest); fi
-            gh release create "$tag" --target "${{ needs.build.outputs.sha }}" --title "Deliberate ${{ needs.build.outputs.version }}" --generate-notes "${args[@]}"
+            gh release create "$tag" --verify-tag --title "Deliberate ${{ needs.build.outputs.version }}" --generate-notes "${args[@]}"
           fi
           asset="${{ needs.build.outputs.universal_tarball }}"
           assets=$(gh release view "$tag" --json assets --jq '.assets[].name')
