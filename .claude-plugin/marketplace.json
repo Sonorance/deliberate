@@ -3,13 +3,13 @@
   "owner": {
     "name": "Sonorance"
   },
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Files-first product workflows inside your agent.",
   "plugins": [
     {
       "name": "deliberate",
       "source": ".",
-      "version": "0.6.0",
+      "version": "0.7.0",
       "description": "Analyze grounded product decisions, monitor the market, read product evidence, and keep every result as reviewable files.",
       "author": {
         "name": "Sonorance",

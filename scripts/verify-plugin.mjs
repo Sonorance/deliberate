@@ -3,6 +3,12 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  DELIBERATE_EXTENSION_NAMESPACE,
+  GENERATED_MANIFEST_PATHS,
+  projectPluginManifests,
+} from './plugin-manifests.mjs';
+import { validateAgentPluginManifest, validateAgentSkill } from './validate-plugin-manifest.mjs';
 
 const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9]\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 const HOMEPAGE = 'https://trydeliberate.com';
@@ -98,10 +104,20 @@ export function verifyPlugin(pluginRoot, { selfContained = false } = {}) {
   ]) assert.ok(existsSync(join(root, required)), `distribution is missing ${required}`);
 
   const plugin = readJson(root, 'plugin.json');
+  validateAgentPluginManifest(plugin);
   assertIdentity(plugin, pkg.version, 'plugin.json');
-  assert.deepEqual(plugin.skills, ['skills/']);
+  assert.deepEqual(plugin.extensions, {
+    [DELIBERATE_EXTENSION_NAMESPACE]: {
+      category: 'productivity',
+      skills: ['skills/'],
+    },
+  });
   assert.equal(plugin.homepage, HOMEPAGE);
   assert.equal(plugin.repository, REPOSITORY);
+  const projectedManifests = projectPluginManifests(plugin);
+  for (const path of GENERATED_MANIFEST_PATHS) {
+    assert.deepEqual(readJson(root, path), projectedManifests[path], `${path} differs from canonical plugin.json projection`);
+  }
 
   const copilotMarketplace = readJson(root, '.github/plugin/marketplace.json');
   assertSinglePlugin(copilotMarketplace, pkg.version, '.github/plugin/marketplace.json', '.');
@@ -146,9 +162,9 @@ export function verifyPlugin(pluginRoot, { selfContained = false } = {}) {
   assert.equal(runtime.node, pkg.engines.node, 'runtime.json Node.js floor differs from package.json');
 
   const skill = readFileSync(join(root, 'skills', 'deliberate', 'SKILL.md'), 'utf8');
-  assert.match(skill, /^---\nname: deliberate\n[\s\S]*?\n---/);
+  const skillMetadata = validateAgentSkill(skill, 'deliberate', 'skills/deliberate/SKILL.md');
   assert.match(skill, /<skill-base-directory>\/scripts\/deliberate\.mjs/);
-  assert.equal(skill.match(/^version:\s*['"]?([^'"\n]+)['"]?\s*$/m)?.[1], pkg.version, 'SKILL.md version differs from package.json');
+  assert.equal(skillMetadata.metadata?.version, pkg.version, 'SKILL.md version differs from package.json');
 
   const readme = readFileSync(join(root, 'README.md'), 'utf8');
   assert.match(readme, /runtime requires Node\.js 22\.5 or newer/);
