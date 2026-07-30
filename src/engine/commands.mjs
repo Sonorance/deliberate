@@ -62,7 +62,7 @@ export const SKILL_FOLLOW_UPS = [
 export const CLI_COMMANDS = [
   ['brief list', 'List the project’s briefs (newest first; delete one by removing its folder).'],
   ['brief prompt [--period-start <YYYY-MM-DD> --period-end <YYYY-MM-DD>]', 'Print the Briefer prompt for the default 90-day/since-last window or an explicit period.'],
-  ['brief save [--file <path>] [--period-start <YYYY-MM-DD> --period-end <YYYY-MM-DD>]', 'Persist a produced brief and its selected period into deliberate/briefs/<period-end date>/brief.md; prints its id.'],
+  ['brief save [--file <path>] [--period-start <YYYY-MM-DD> --period-end <YYYY-MM-DD>]', 'Persist a produced brief and its selected period into deliberate/briefs/<period-end date[-N]>/brief.md; reruns receive a numeric suffix and the command prints that folder id.'],
   ['case "<idea>" [--lens <lens>]', 'Create a case and print its id; --lens is selected by the host (product, market, strategy, or platform).'],
   ['case analysis prompt <id> [--note <text>]', 'Print the next lens-aware analysis stage’s prompt (frame → shape → launch) for the specified case.'],
   ['case analysis save <id> [--file <path>]', 'Persist a produced analysis stage into the specified case’s analysis.md and advance it.'],
