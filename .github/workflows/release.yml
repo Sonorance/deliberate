@@ -4,26 +4,16 @@ on:
   pull_request:
     branches: [release/default, release/insiders]
     types: [closed]
-  workflow_dispatch:
-    inputs:
-      channel:
-        description: npm release channel
-        required: true
-        type: choice
-        default: stable
-        options:
-          - stable
-          - insiders
 
 permissions: {}
 
 concurrency:
-  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.channel || github.base_ref }}
+  group: release-${{ github.base_ref == 'release/insiders' && 'insiders' || 'stable' }}
   cancel-in-progress: false
 
 jobs:
   build:
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -42,7 +32,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || github.sha }}
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
       - uses: actions/setup-node@v6
         with:
           node-version: 24
@@ -52,7 +42,7 @@ jobs:
       - name: Resolve release version and npm channel
         id: release
         env:
-          RELEASE_CHANNEL: ${{ github.event_name == 'workflow_dispatch' && inputs.channel || (github.base_ref == 'release/insiders' && 'insiders' || 'stable') }}
+          RELEASE_CHANNEL: ${{ github.base_ref == 'release/insiders' && 'insiders' || 'stable' }}
         run: |
           set -euo pipefail
           base=$(node -p "require('./package.json').version")
@@ -113,8 +103,85 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  publish:
+  release-preflight:
     needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: distribution-package
+      - name: Mint release token
+        id: app_token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+      - name: Verify release destination
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag="v${{ needs.build.outputs.version }}"
+          sha="${{ needs.build.outputs.sha }}"
+          tag_type=$(gh api "repos/$GH_REPO/git/ref/tags/$tag" --jq .object.type 2>/dev/null || true)
+          if [ -z "$tag_type" ]; then
+            echo "$tag is available for the verified release source."
+          else
+            tag_sha=$(gh api "repos/$GH_REPO/git/ref/tags/$tag" --jq .object.sha)
+            if [ "$tag_type" = "tag" ]; then
+              tag_sha=$(gh api "repos/$GH_REPO/git/tags/$tag_sha" --jq .object.sha)
+            fi
+            if [ "$tag_sha" != "$sha" ]; then
+              echo "::error::$tag points to $tag_sha, not $sha."
+              exit 1
+            fi
+          fi
+          if release_lookup=$(gh api "repos/$GH_REPO/releases/tags/$tag" 2>&1); then
+            release_exists=true
+          elif grep -q 'HTTP 404' <<<"$release_lookup"; then
+            release_exists=false
+          else
+            echo "::error::Could not verify whether $tag already has a GitHub release."
+            exit 1
+          fi
+          if [ "$release_exists" = "true" ]; then
+            release_draft=$(gh release view "$tag" --json isDraft --jq .isDraft)
+            release_prerelease=$(gh release view "$tag" --json isPrerelease --jq .isPrerelease)
+            if [ "$release_draft" != "false" ] || [ "$release_prerelease" != "${{ needs.build.outputs.prerelease }}" ]; then
+              echo "::error::$tag release state does not match the verified channel."
+              exit 1
+            fi
+            if [ "${{ needs.build.outputs.prerelease }}" = "false" ]; then
+              latest_tag=$(gh api "repos/$GH_REPO/releases/latest" --jq .tag_name 2>/dev/null || true)
+              if [ "$latest_tag" != "$tag" ]; then
+                echo "::error::$tag is stable but is not the repository's latest release."
+                exit 1
+              fi
+            fi
+            asset="${{ needs.build.outputs.universal_tarball }}"
+            assets=$(gh release view "$tag" --json assets --jq '.assets[].name')
+            unexpected=$(printf '%s\n' "$assets" | sed '/^$/d' | grep -Fvx "$asset" || true)
+            if [ -n "$unexpected" ]; then
+              echo "::error::$tag must contain only $asset, but also contains: $unexpected"
+              exit 1
+            fi
+            if printf '%s\n' "$assets" | grep -Fxq "$asset"; then
+              mkdir .release-assets
+              trap 'rm -rf .release-assets' EXIT
+              gh release download "$tag" --pattern "$asset" --dir .release-assets
+              if ! cmp -s "$asset" ".release-assets/$asset"; then
+                echo "::error::$tag already has a different $asset."
+                exit 1
+              fi
+            fi
+          fi
+
+  publish:
+    needs: [build, release-preflight]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -141,13 +208,18 @@ jobs:
               echo "::error::$PACKAGE_NAME@$PACKAGE_VERSION already exists with a different artifact."
               exit 1
             fi
+            remote_tag=$(npm view "$PACKAGE_NAME" "dist-tags.${{ needs.build.outputs.tag }}" 2>/dev/null || true)
+            if [ "$remote_tag" != "$PACKAGE_VERSION" ]; then
+              echo "::error::$PACKAGE_NAME@$PACKAGE_VERSION exists, but the ${{ needs.build.outputs.tag }} tag points to $remote_tag."
+              exit 1
+            fi
             echo "$PACKAGE_NAME@$PACKAGE_VERSION is already published with the verified artifact; resuming."
           else
             npm publish "./$TARBALL" --ignore-scripts --access public --tag "${{ needs.build.outputs.tag }}"
           fi
 
   github-release:
-    needs: [build, publish]
+    needs: [build, release-preflight, publish]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -172,23 +244,50 @@ jobs:
           tag="v${{ needs.build.outputs.version }}"
           sha="${{ needs.build.outputs.sha }}"
           tag_type=$(gh api "repos/$GH_REPO/git/ref/tags/$tag" --jq .object.type 2>/dev/null || true)
-          if [ -n "$tag_type" ]; then
-            tag_sha=$(gh api "repos/$GH_REPO/git/ref/tags/$tag" --jq .object.sha)
-            if [ "$tag_type" = "tag" ]; then
-              tag_sha=$(gh api "repos/$GH_REPO/git/tags/$tag_sha" --jq .object.sha)
-            fi
-            if [ "$tag_sha" != "$sha" ]; then
-              echo "::error::$tag points to $tag_sha, not $sha."
+          if [ -z "$tag_type" ]; then
+            gh api --method POST "repos/$GH_REPO/git/refs" -f ref="refs/tags/$tag" -f sha="$sha" >/dev/null
+            for attempt in {1..10}; do
+              tag_type=$(gh api "repos/$GH_REPO/git/ref/tags/$tag" --jq .object.type 2>/dev/null || true)
+              if [ -n "$tag_type" ]; then break; fi
+              sleep 2
+            done
+            if [ -z "$tag_type" ]; then
+              echo "::error::$tag was created but did not become visible."
               exit 1
             fi
+          fi
+          tag_sha=$(gh api "repos/$GH_REPO/git/ref/tags/$tag" --jq .object.sha)
+          if [ "$tag_type" = "tag" ]; then
+            tag_sha=$(gh api "repos/$GH_REPO/git/tags/$tag_sha" --jq .object.sha)
+          fi
+          if [ "$tag_sha" != "$sha" ]; then
+            echo "::error::$tag points to $tag_sha, not $sha."
+            exit 1
           fi
           if gh release view "$tag" >/dev/null 2>&1; then
             echo "$tag already has a GitHub release; resuming."
           else
             args=()
             if [ "${{ needs.build.outputs.prerelease }}" = "true" ]; then args+=(--prerelease); else args+=(--latest); fi
-            if [ -z "$tag_type" ]; then args+=(--target "$sha"); else args+=(--verify-tag); fi
-            gh release create "$tag" --title "Deliberate ${{ needs.build.outputs.version }}" --generate-notes "${args[@]}"
+            gh release create "$tag" --title "Deliberate ${{ needs.build.outputs.version }}" --generate-notes --verify-tag "${args[@]}"
+          fi
+          release_draft=$(gh release view "$tag" --json isDraft --jq .isDraft)
+          release_prerelease=$(gh release view "$tag" --json isPrerelease --jq .isPrerelease)
+          if [ "$release_draft" != "false" ] || [ "$release_prerelease" != "${{ needs.build.outputs.prerelease }}" ]; then
+            echo "::error::$tag release state does not match the verified channel."
+            exit 1
+          fi
+          if [ "${{ needs.build.outputs.prerelease }}" = "false" ]; then
+            latest_tag=""
+            for attempt in {1..10}; do
+              latest_tag=$(gh api "repos/$GH_REPO/releases/latest" --jq .tag_name 2>/dev/null || true)
+              if [ "$latest_tag" = "$tag" ]; then break; fi
+              sleep 2
+            done
+            if [ "$latest_tag" != "$tag" ]; then
+              echo "::error::$tag is stable but is not the repository's latest release."
+              exit 1
+            fi
           fi
           asset="${{ needs.build.outputs.universal_tarball }}"
           assets=$(gh release view "$tag" --json assets --jq '.assets[].name')
