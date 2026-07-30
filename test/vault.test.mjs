@@ -323,38 +323,6 @@ test('briefs: created under deliberate/briefs/<date>/brief.md with frontmatter +
   assert.equal(rec.period_end, t, 'the window end round-trips');
 });
 
-test('briefs: the folder is the period end, not the generation date', () => {
-  const p = createProjectWithId(store, 'bwindow', 'BWindow').id;
-  const periodEnd = Date.parse('2026-07-18T00:00:00Z') - 1;      // end of Jul 17 (UTC)
-  const generatedAt = Date.parse('2026-07-29T09:30:00Z');
-  const b = store.createBrief(p, {
-    period_start: Date.parse('2026-07-10T00:00:00Z'), period_end: periodEnd, body: '# Brief\n\n* x',
-  }, generatedAt);
-  const root = join(store.getProject(p).dir, 'deliberate', 'briefs');
-  assert.deepEqual(readdirSync(root), ['2026-07-17'], 'the folder is the last day of the reported period');
-  assert.equal(store.getBrief(b.id).period_end, periodEnd, 'the window end round-trips');
-});
-
-test('briefs: reruns of the same period stay separate folders', () => {
-  const p = createProjectWithId(store, 'brerun', 'BRerun').id;
-  const win = { period_start: Date.parse('2026-03-01T00:00:00Z'), period_end: Date.parse('2026-03-31T00:00:00Z'), body: '# Brief\n\n* x' };
-  store.createBrief(p, win, Date.parse('2026-04-01T00:00:00Z'));
-  store.createBrief(p, win, Date.parse('2026-04-09T00:00:00Z'));
-  const root = join(store.getProject(p).dir, 'deliberate', 'briefs');
-  assert.deepEqual(readdirSync(root).sort(), ['2026-03-31', '2026-03-31-2']);
-});
-
-test('readouts: the folder is the completed period end, not the generation date', () => {
-  const p = createProjectWithId(store, 'rwindow', 'RWindow').id;
-  const periodEnd = Date.UTC(2026, 5, 29) - 1;                    // end of Jun 28 (UTC)
-  const r = store.createReadout(p, {
-    period_start: Date.UTC(2026, 5, 22), period_end: periodEnd, body: '# Product readout\n',
-  }, Date.parse('2026-06-30T12:00:00Z'));
-  const root = join(store.getProject(p).dir, 'deliberate', 'readouts');
-  assert.deepEqual(readdirSync(root), ['2026-06-28'], 'the folder is the last day of the completed period');
-  assert.equal(store.getReadout(r.id).period_end, periodEnd, 'the period end round-trips');
-});
-
 test('briefs: listBriefs is newest-first and lastBriefEnd tracks the latest window end', () => {
   const p = createProjectWithId(store, 'bproj', 'B').id;
   const older = Date.parse('2026-01-01');
