@@ -10,20 +10,20 @@ Deliberate ships one canonical Agent Skill through native plugin or extension en
 
 | Harness | Install | Invoke |
 |---|---|---|
-| **GitHub Copilot** | `copilot plugin install Sonorance/deliberate` | `/deliberate` |
+| **GitHub Copilot** | `copilot plugin marketplace add Sonorance/deliberate`, then `copilot plugin install deliberate@deliberate` | `/deliberate` |
 | **Claude Code** | `/plugin marketplace add Sonorance/deliberate`, then `/plugin install deliberate@deliberate` and `/reload-plugins` | `/deliberate:deliberate` |
 | **Codex** | `codex plugin marketplace add Sonorance/deliberate`, then install Deliberate from `/plugins` and start a new session | `$deliberate` |
 | **Gemini CLI** | `gemini extensions install https://github.com/Sonorance/deliberate` | Ask Gemini to use Deliberate |
 | **Cursor** | **Approval pending:** after Marketplace acceptance, install Deliberate from Customize; until then, load this repository only as a local/team plugin | `/deliberate` |
 
-Copilot's repository marketplace remains available for team-managed discovery:
+Copilot CLI has deprecated direct repository, URL, and local-path plugin installs, so register the Deliberate marketplace once and install from it:
 
 ```bash
 copilot plugin marketplace add Sonorance/deliberate
 copilot plugin install deliberate@deliberate
 ```
 
-`copilot plugin install` configures Copilot CLI only; it does not enable Deliberate in the Copilot app or cloud agent. App and cloud-agent enablement is declarative in each consumer repository's `.github/copilot/settings.json`: configure `enabledPlugins` and, when the Deliberate marketplace is not already known, `extraKnownMarketplaces`.
+Installing from the CLI configures Copilot CLI only; it does not enable Deliberate in the Copilot app or cloud agent. App and cloud-agent enablement is declarative in each consumer repository's `.github/copilot/settings.json`: configure `enabledPlugins` and, when the Deliberate marketplace is not already known, `extraKnownMarketplaces`.
 
 OpenCode and Windsurf use the same portable Agent Skill through the ecosystem `skills` installer:
 
@@ -135,8 +135,8 @@ deliberate/
     one-pager.md
     prototype/[<surface>/]index.html  # product/market cases only, built on request
     log.jsonl
-  briefs/<YYYY-MM-DD>/brief.md
-  readouts/<YYYY-MM-DD[-N]>/
+  briefs/<YYYY-MM-DD[-N]>/brief.md  # folder = period end; same-period reruns receive a suffix
+  readouts/<YYYY-MM-DD[-N]>/         # folder = last day of the completed period
     readout.md
     charts/<metric>.svg
   matchups/<competitor-slug>/matchup.md
