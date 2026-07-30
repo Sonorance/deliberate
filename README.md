@@ -135,8 +135,8 @@ deliberate/
     one-pager.md
     prototype/[<surface>/]index.html  # product/market cases only, built on request
     log.jsonl
-  briefs/<YYYY-MM-DD>/brief.md
-  readouts/<YYYY-MM-DD[-N]>/
+  briefs/<YYYY-MM-DD>/brief.md       # folder = last day of the reported period
+  readouts/<YYYY-MM-DD[-N]>/         # folder = last day of the completed period
     readout.md
     charts/<metric>.svg
   matchups/<competitor-slug>/matchup.md

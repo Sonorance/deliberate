@@ -3,7 +3,8 @@
  * stage). The host runs it in-session (like the Analyst), producing one Markdown artifact
  * that captures the competitive + market changes since the last brief. The engine here is
  * LLM-free: it computes the reporting window, assembles the producer prompt, and persists
- * the produced artifact as `deliberate/briefs/<YYYY-MM-DD>/brief.md`.
+ * the produced artifact as `deliberate/briefs/<YYYY-MM-DD>/brief.md`, where the folder is
+ * the last day of the reported window rather than the day it was generated.
  *
  * The window is *since the last brief*, capped at 90 days: `end = now`,
  * `start = max(lastBriefEnd, now − 90 days)` — so a first-ever brief (or a stale one)
