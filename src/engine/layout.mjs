@@ -19,7 +19,7 @@ export const FS_LAYOUT = [
   ['.sonorance/plugins.json', 'The vault’s enabled bundled plugin ids — Deliberate registers itself here so `sonorance serve` composes its capabilities additively. Committed.'],
   ['.sonorance/sources.md', 'The project’s categorized project-external grounding sources: durable internal or public resources outside the current folder, grouped into product, code, data, customer, go-to-market, and other sections. Committed.'],
   ['deliberate/', 'Deliberate’s home in the repo — everything below lives here.'],
-  ['deliberate/briefs/<YYYY-MM-DD>/brief.md', 'A landscape brief — competitive + market changes for the selected period (90-day first-run default).'],
+  ['deliberate/briefs/<YYYY-MM-DD[-N]>/brief.md', 'A landscape brief — competitive + market changes for the selected period (90-day first-run default). The folder is the last day of the reported period, not the day the brief was produced; reruns of one period receive a numeric suffix.'],
   ['deliberate/cases/<case>/analysis.md', 'The whole case: frontmatter (lens, state, score, per-stage) + the decision record — title, a 1–2 sentence case summary, then one lens-shaped section per stage in funnel order.'],
   ['deliberate/cases/<case>/log.jsonl', 'The producer/evaluator run log for the case.'],
   ['deliberate/cases/<case>/one-pager.md', 'The lens-appropriate decision one-pager — product reverse PR-FAQ, market decision brief, strategy memo, or platform decision memo.'],
@@ -32,7 +32,7 @@ export const FS_LAYOUT = [
   ['deliberate/context/product.md', 'The core project context — overview, personas, jobs, market, strategy, and links to the canonical competitor and ecosystem files (markdown, human-curated).'],
   ['deliberate/matchups/<competitor-slug>/matchup.md', 'A competitive matchup — a grounded, point-in-time head-to-head against one named rival (one canonical doc per rival, refreshed in place).'],
   ['deliberate/readouts/<YYYY-MM-DD[-N]>/charts/<metric>.svg', 'Up to three deterministic trend charts for decision-relevant key metrics, generated from normalized completed-period time series and embedded by readout.md.'],
-  ['deliberate/readouts/<YYYY-MM-DD[-N]>/readout.md', 'A product readout — configured key metrics, optional trend charts, customer evidence, material insights, and warranted actions grounded in one completed reporting period; same-day reruns receive a numeric suffix.'],
+  ['deliberate/readouts/<YYYY-MM-DD[-N]>/readout.md', 'A product readout — configured key metrics, optional trend charts, customer evidence, material insights, and warranted actions grounded in one completed reporting period; the folder is the last day of that period, not the day the readout was produced, and reruns of the same period receive a numeric suffix.'],
   ['~/.sonorance/', 'The shared platform home (with Sonorance; override SONORANCE_HOME): the explicit vault registry + current pointer, settings, sonorance.log, and disposable cache. Project content stays in explicitly opened folders.'],
   ['~/.sonorance/sonorance.log', 'The local runtime and comment-bridge diagnostics log. Failures print this path; override the home with SONORANCE_HOME.'],
 ];

@@ -158,9 +158,9 @@ jobs:
           name: distribution-package
       - name: Mint release token
         id: app_token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          app-id: ${{ secrets.RELEASE_APP_ID }}
+          client-id: ${{ secrets.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
           permission-contents: write
       - name: Create or resume GitHub release
@@ -171,14 +171,8 @@ jobs:
           set -euo pipefail
           tag="v${{ needs.build.outputs.version }}"
           sha="${{ needs.build.outputs.sha }}"
-          # Ensure the tag exists at the release commit before creating the release.
-          # Creating the ref explicitly surfaces a precise error if tag creation is
-          # ever restricted, instead of an opaque failure inside `gh release create`,
-          # and lets the release be created from the existing tag with --verify-tag.
           tag_type=$(gh api "repos/$GH_REPO/git/ref/tags/$tag" --jq .object.type 2>/dev/null || true)
-          if [ -z "$tag_type" ]; then
-            gh api --method POST "repos/$GH_REPO/git/refs" -f ref="refs/tags/$tag" -f sha="$sha" >/dev/null
-          else
+          if [ -n "$tag_type" ]; then
             tag_sha=$(gh api "repos/$GH_REPO/git/ref/tags/$tag" --jq .object.sha)
             if [ "$tag_type" = "tag" ]; then
               tag_sha=$(gh api "repos/$GH_REPO/git/tags/$tag_sha" --jq .object.sha)
@@ -193,7 +187,8 @@ jobs:
           else
             args=()
             if [ "${{ needs.build.outputs.prerelease }}" = "true" ]; then args+=(--prerelease); else args+=(--latest); fi
-            gh release create "$tag" --verify-tag --title "Deliberate ${{ needs.build.outputs.version }}" --generate-notes "${args[@]}"
+            if [ -z "$tag_type" ]; then args+=(--target "$sha"); else args+=(--verify-tag); fi
+            gh release create "$tag" --title "Deliberate ${{ needs.build.outputs.version }}" --generate-notes "${args[@]}"
           fi
           asset="${{ needs.build.outputs.universal_tarball }}"
           assets=$(gh release view "$tag" --json assets --jq '.assets[].name')

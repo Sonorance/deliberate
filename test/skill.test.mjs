@@ -20,7 +20,7 @@ const caseIdFrom = (output) => {
   assert.ok(match, 'case creation prints its id');
   return match[1];
 };
-test('SKILL.md has strictly-valid, user-invocable Copilot frontmatter for `deliberate`', () => {
+test('SKILL.md has portable Agent Skills frontmatter for `deliberate`', () => {
   const raw = readFileSync(join(repoRoot, 'skills/deliberate/SKILL.md'), 'utf8');
   const m = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   assert.ok(m, 'has a --- frontmatter block');
@@ -29,10 +29,14 @@ test('SKILL.md has strictly-valid, user-invocable Copilot frontmatter for `delib
   const data = yaml.load(m[1]);
   const body = m[2];
   assert.equal(data.name, 'deliberate', 'skill name is the command handle');
-  assert.equal(data['user-invocable'], true, 'exposed as a /deliberate command');
   assert.ok(String(data.description).length > 40, 'has a routing description');
   assert.ok(String(data.description).length <= 1024, 'description stays within Copilot skill discovery’s 1024-character limit');
-  assert.ok(data['argument-hint'], 'has an argument hint');
+  assert.deepEqual(
+    Object.keys(data).sort(),
+    ['description', 'license', 'metadata', 'name'],
+    'frontmatter contains only portable Agent Skills fields',
+  );
+  assert.match(data.metadata?.['com.trydeliberate.argument-hint'] || '', /\binit\b/, 'portable metadata retains the command hint');
   assert.match(body, /`init`/, 'documents the init command');
   assert.match(body, /`case <idea>`/, 'documents the case command');
   assert.match(body, /never auto-built|never automatic/i, 'preserves the prototype-ask rule (built on request, not automatic)');

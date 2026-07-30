@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { GENERATED_MANIFEST_PATHS, projectPluginManifests } from './plugin-manifests.mjs';
+import { validateAgentPluginManifest, validateAgentSkill } from './validate-plugin-manifest.mjs';
 
 const archive = process.argv[2];
 assert.ok(archive, 'usage: node scripts/verify-distribution-archive.mjs <distribution.tar.gz>');
@@ -30,6 +32,7 @@ const required = [
   'runtime/package.json',
   'runtime/src/cli/deliberate.mjs',
   'runtime/roles/config.yaml',
+  'runtime/node_modules/sonorance/package.json',
   'LICENSE',
   'README.md',
 ];
@@ -45,6 +48,26 @@ for (const path of normalizedMembers.keys()) {
   assert.ok(dependency || !relative.split('/').some((segment) => /^(?:tests?|specs?)$/.test(segment)), `distribution archive includes test material at ${relative}`);
   assert.ok(!relative.split('/').some((segment) => segment === 'engine.json' || segment.startsWith('.env')), `distribution archive includes local runtime configuration at ${relative}`);
 }
+const expectedRoot = [
+  '.agents',
+  '.claude-plugin',
+  '.codex-plugin',
+  '.cursor-plugin',
+  '.github',
+  'LICENSE',
+  'README.md',
+  'gemini-extension.json',
+  'plugin.json',
+  'runtime',
+  'skills',
+];
+const actualRoot = [...new Set(
+  [...normalizedMembers.keys()]
+    .filter((path) => !prefix || path.startsWith(prefix))
+    .map((path) => path.slice(prefix.length).split('/')[0])
+    .filter(Boolean),
+)].sort();
+assert.deepEqual(actualRoot, expectedRoot, 'distribution archive root contains missing or unexpected entries');
 
 const readText = (path) => {
   const member = normalizedMembers.get(`${prefix}${path}`);
@@ -52,6 +75,7 @@ const readText = (path) => {
 };
 const readJson = (path) => JSON.parse(readText(path));
 const plugin = readJson('plugin.json');
+validateAgentPluginManifest(plugin, 'archive plugin.json');
 const copilotMarketplace = readJson('.github/plugin/marketplace.json');
 const claude = readJson('.claude-plugin/plugin.json');
 const claudeMarketplace = readJson('.claude-plugin/marketplace.json');
@@ -63,6 +87,11 @@ const contract = readJson('skills/deliberate/runtime.json');
 const runtime = readJson('runtime/package.json');
 assert.equal(plugin.name, 'deliberate');
 assert.equal(gemini.name, plugin.name);
+const projectedManifests = projectPluginManifests(plugin);
+for (const path of GENERATED_MANIFEST_PATHS) {
+  assert.deepEqual(readJson(path), projectedManifests[path], `${path} differs from canonical plugin.json projection`);
+}
+validateAgentSkill(readText('skills/deliberate/SKILL.md'), 'deliberate', 'skills/deliberate/SKILL.md');
 assert.equal(contract.package, 'deliberate-cli');
 assert.equal(runtime.name, contract.package);
 for (const [path, version] of [
@@ -78,7 +107,7 @@ for (const [path, version] of [
   ['skills/deliberate/runtime.json', contract.version],
   ['runtime/package.json', runtime.version],
 ]) assert.equal(version, plugin.version, `${path} version differs from plugin.json`);
-assert.equal(readText('skills/deliberate/SKILL.md').match(/^version:\s*['"]?([^'"\n]+)['"]?\s*$/m)?.[1], plugin.version, 'SKILL.md version differs from plugin.json');
+assert.equal(readText('skills/deliberate/SKILL.md').match(/^  version:\s*['"]?([^'"\n]+)['"]?\s*$/m)?.[1], plugin.version, 'SKILL.md version differs from plugin.json');
 assert.equal(contract.node, runtime.engines?.node);
 
 if (archive.endsWith('.tar.gz')) {
