@@ -24,6 +24,7 @@
     "deliberate": "node src/cli/deliberate.mjs",
     "app": "node src/cli/deliberate.mjs serve --open",
     "test": "node --test --test-force-exit --import ./test-setup.mjs",
+    "generate:plugin": "node scripts/plugin-manifests.mjs",
     "build:plugin": "node scripts/build-plugin.mjs",
     "verify:plugin": "node scripts/verify-plugin.mjs .",
     "version": "node scripts/sync-plugin-version.mjs"
@@ -48,6 +49,7 @@
     "access": "public"
   },
   "devDependencies": {
+    "ajv": "^8.20.0",
     "js-yaml": "^4.1.0"
   }
 }

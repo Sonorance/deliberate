@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import {
   cpSync,
   mkdirSync,
@@ -11,10 +11,15 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { resolveLaunchTarget } from '../skills/deliberate/scripts/deliberate.mjs';
+import {
+  GENERATED_MANIFEST_PATHS,
+  generatePluginManifests,
+  projectPluginManifests,
+} from '../scripts/plugin-manifests.mjs';
 import { verifyPlugin } from '../scripts/verify-plugin.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -81,12 +86,38 @@ const copyUniversalFixture = (root) => {
   writeFileSync(sonorancePackage, '{"name":"sonorance","version":"0.4.0"}\n');
 };
 
+const createUniversalArchive = (root) => {
+  const archive = join(dirname(root), `${basename(root)}.tar.gz`);
+  execFileSync('tar', ['-czf', archive, '-C', root, '.']);
+  return archive;
+};
+
+const verifyArchive = (archive) => spawnSync(
+  process.execPath,
+  [join(repoRoot, 'scripts', 'verify-distribution-archive.mjs'), archive],
+  { encoding: 'utf8' },
+);
+
 test('repository is a version-aligned multi-harness distribution', () => {
   const pkg = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'));
   const plugin = verifyPlugin(repoRoot);
   assert.equal(plugin.version, pkg.version);
   assert.deepEqual(pkg.files, ['src/engine', 'src/cli', 'roles', 'AGENTS.md', 'README.md', 'LICENSE']);
 });
+
+test('every native manifest is generated from canonical plugin.json', () => withWorkspace('generated-manifests', (root) => {
+  copyUniversalFixture(root);
+  const pluginPath = join(root, 'plugin.json');
+  const plugin = JSON.parse(readFileSync(pluginPath, 'utf8'));
+  plugin.version = '1.2.3';
+  plugin.description = 'Changed canonical description';
+  writeFileSync(pluginPath, `${JSON.stringify(plugin)}\n`);
+  generatePluginManifests(root);
+  const expected = projectPluginManifests(plugin);
+  for (const path of GENERATED_MANIFEST_PATHS) {
+    assert.deepEqual(JSON.parse(readFileSync(join(root, path), 'utf8')), expected[path], path);
+  }
+}));
 
 test('public install docs preserve harness-specific prerequisites and lifecycle contracts', () => {
   const readme = readFileSync(join(repoRoot, 'README.md'), 'utf8');
@@ -220,5 +251,80 @@ test('universal verifier rejects version drift', () => withWorkspace('distributi
   const gemini = JSON.parse(readFileSync(geminiPath, 'utf8'));
   gemini.version = '9.9.9';
   writeFileSync(geminiPath, `${JSON.stringify(gemini)}\n`);
-  assert.throws(() => verifyPlugin(root, { selfContained: true }), /gemini-extension\.json version differs/);
+  assert.throws(() => verifyPlugin(root, { selfContained: true }), /gemini-extension\.json differs from canonical plugin\.json projection/);
+}));
+
+test('plugin verifier rejects non-conformant Agent Plugins manifests', () => withWorkspace('invalid-agent-plugin', (root) => {
+  copyUniversalFixture(root);
+  const pluginPath = join(root, 'plugin.json');
+  const plugin = JSON.parse(readFileSync(pluginPath, 'utf8'));
+  plugin.skills = ['skills/'];
+  writeFileSync(pluginPath, `${JSON.stringify(plugin)}\n`);
+  assert.throws(
+    () => verifyPlugin(root, { selfContained: true }),
+    /plugin\.json does not conform to Agent Plugins 1\.0\.0:.*additional properties/,
+  );
+}));
+
+test('plugin verifier requires the canonical Agent Plugins schema identifier', () => withWorkspace('missing-agent-plugin-schema', (root) => {
+  copyUniversalFixture(root);
+  const pluginPath = join(root, 'plugin.json');
+  const plugin = JSON.parse(readFileSync(pluginPath, 'utf8'));
+  delete plugin.$schema;
+  writeFileSync(pluginPath, `${JSON.stringify(plugin)}\n`);
+  assert.throws(
+    () => verifyPlugin(root, { selfContained: true }),
+    /plugin\.json does not conform to Agent Plugins 1\.0\.0:.*required property/,
+  );
+}));
+
+test('plugin verifier rejects non-portable Agent Skill frontmatter', () => withWorkspace('invalid-agent-skill', (root) => {
+  copyUniversalFixture(root);
+  const skillPath = join(root, 'skills', 'deliberate', 'SKILL.md');
+  const skill = readFileSync(skillPath, 'utf8').replace('license: Apache-2.0', 'license: Apache-2.0\nuser-invocable: true');
+  writeFileSync(skillPath, skill);
+  assert.throws(
+    () => verifyPlugin(root, { selfContained: true }),
+    /skills\/deliberate\/SKILL\.md contains non-portable Agent Skills fields/,
+  );
+}));
+
+test('archive verifier accepts the canonical self-contained distribution', () => withWorkspace('valid-archive', (root) => {
+  copyUniversalFixture(root);
+  const archive = createUniversalArchive(root);
+  try {
+    const result = verifyArchive(archive);
+    assert.equal(result.status, 0, result.stderr);
+  } finally {
+    rmSync(archive, { force: true });
+  }
+}));
+
+test('archive verifier enforces canonical native projections and portable skill metadata', () => withWorkspace('invalid-archive-projection', (root) => {
+  copyUniversalFixture(root);
+  const claudePath = join(root, '.claude-plugin', 'plugin.json');
+  const claude = JSON.parse(readFileSync(claudePath, 'utf8'));
+  claude.hooks = './hooks.json';
+  writeFileSync(claudePath, `${JSON.stringify(claude)}\n`);
+  const archive = createUniversalArchive(root);
+  try {
+    const result = verifyArchive(archive);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /\.claude-plugin\/plugin\.json differs from canonical plugin\.json projection/);
+  } finally {
+    rmSync(archive, { force: true });
+  }
+}));
+
+test('archive verifier requires the bundled Sonorance runtime', () => withWorkspace('incomplete-archive-runtime', (root) => {
+  copyUniversalFixture(root);
+  rmSync(join(root, 'runtime', 'node_modules', 'sonorance'), { recursive: true, force: true });
+  const archive = createUniversalArchive(root);
+  try {
+    const result = verifyArchive(archive);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /distribution archive is missing runtime\/node_modules\/sonorance\/package\.json/);
+  } finally {
+    rmSync(archive, { force: true });
+  }
 }));

@@ -16,6 +16,8 @@ Deliberate ships one canonical Agent Skill through native plugin or extension en
 | **Gemini CLI** | `gemini extensions install https://github.com/Sonorance/deliberate` | Ask Gemini to use Deliberate |
 | **Cursor** | **Approval pending:** after Marketplace acceptance, install Deliberate from Customize; until then, load this repository only as a local/team plugin | `/deliberate` |
 
+The root `plugin.json` conforms to Agent Plugins 1.0.0 and is the canonical manifest. Build and release verification validate it against the pinned official schema, then deterministically project the native Copilot, Claude Code, Codex, Gemini CLI, and Cursor manifests from it. Those adapters remain in the distribution because the portable specification does not replace harness marketplaces or installation flows.
+
 Copilot CLI has deprecated direct repository, URL, and local-path plugin installs, so register the Deliberate marketplace once and install from it:
 
 ```bash
@@ -149,11 +151,12 @@ src/engine/   prompt builders, persistence, role configuration, and commands
 src/cli/      the deliberate binary
 roles/        generic instructions, templates, and methods
 skills/deliberate/  the plugin's /deliberate skill and launcher
-plugin.json and .github/plugin/  GitHub Copilot plugin and marketplace
+plugin.json  Agent Plugins 1.0.0 canonical manifest
+.github/plugin/  GitHub Copilot marketplace projection
 .claude-plugin/  Claude Code plugin and marketplace
 .codex-plugin/ and .agents/plugins/  Codex plugin and marketplace
 gemini-extension.json  Gemini CLI extension
 .cursor-plugin/  Cursor plugin
-scripts/      universal distribution/package build and verification
+scripts/      native manifest generation, schema validation, and distribution verification
 test/         offline engine, CLI, contract, and skill tests
 ```
