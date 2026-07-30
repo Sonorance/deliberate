@@ -2,7 +2,7 @@
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "deliberate",
   "description": "Files-first product workflows for grounded cases, landscape briefs, product readouts, competitive matchups, prototypes, and reviewable decisions.",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "author": {
     "name": "Sonorance",
     "url": "https://trydeliberate.com"
