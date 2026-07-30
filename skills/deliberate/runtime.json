@@ -1,5 +1,5 @@
 {
   "package": "deliberate-cli",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "node": ">=22.5.0"
 }
