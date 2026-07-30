@@ -3,6 +3,7 @@ import { cpSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { generatePluginManifests } from './plugin-manifests.mjs';
 import { verifyPlugin } from './verify-plugin.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -24,6 +25,7 @@ const copyFile = (path, destination) => {
   cpSync(join(repoRoot, path), target);
 };
 
+generatePluginManifests(repoRoot);
 verifyPlugin(repoRoot);
 rmSync(output, { recursive: true, force: true });
 mkdirSync(output, { recursive: true });

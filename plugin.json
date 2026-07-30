@@ -1,4 +1,5 @@
 {
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "deliberate",
   "description": "Files-first product workflows for grounded cases, landscape briefs, product readouts, competitive matchups, prototypes, and reviewable decisions.",
   "version": "0.6.0",
@@ -15,8 +16,12 @@
     "agent-skills",
     "files-first"
   ],
-  "category": "productivity",
-  "skills": [
-    "skills/"
-  ]
+  "extensions": {
+    "com.trydeliberate": {
+      "category": "productivity",
+      "skills": [
+        "skills/"
+      ]
+    }
+  }
 }

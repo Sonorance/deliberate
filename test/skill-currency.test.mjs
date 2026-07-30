@@ -61,10 +61,10 @@ test('every skill command has exactly one ordered follow-up contract', () => {
   );
 });
 
-test('the frontmatter argument-hint lists every top-level command verb', () => {
-  const hint = String(frontmatter['argument-hint'] || '');
+test('the portable metadata argument hint lists every top-level command verb', () => {
+  const hint = String(frontmatter.metadata?.['com.trydeliberate.argument-hint'] || '');
   for (const v of topVerbs)
-    assert.match(hint, new RegExp(`\\b${esc(v)}\\b`), `argument-hint omits the \`${v}\` command`);
+    assert.match(hint, new RegExp(`\\b${esc(v)}\\b`), `metadata argument hint omits the \`${v}\` command`);
 });
 
 test('/deliberate help delegates to the live SKILL_COMMANDS renderer', () => {
